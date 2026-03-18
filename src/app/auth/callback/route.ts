@@ -21,8 +21,8 @@ export async function GET(request: Request) {
           .eq('id', user.id)
           .single()
 
-        // If no profile or incomplete — send to onboarding
-        if (!profile?.timezone) {
+        // New user (no nickname) → onboarding, existing user → dashboard
+        if (!profile?.nickname) {
           return NextResponse.redirect(`${origin}/onboarding`)
         }
       }
