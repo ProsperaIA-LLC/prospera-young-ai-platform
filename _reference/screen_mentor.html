@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prospera Young AI — Panel Mentor</title>
+<style>
+  :root {
+    --navy:#0E2A47;--navy2:#163857;--teal:#008ca5;--teal-l:#e0f4f8;
+    --green:#00c896;--green-d:#00a87a;--green-l:#d6faf2;
+    --gold:#e0a326;--gold-l:#fef3d7;--coral:#ff5c35;--coral-l:#ffede8;
+    --magenta:#a5086b;--mag-l:#fce8f4;
+    --ink:#111110;--ink2:#3a3936;--ink3:#8a8884;--ink4:#c5c2bb;
+    --bg:#f5f4f0;--bg2:#ebebE4;--white:#ffffff;--border:rgba(17,17,16,0.08);
+  }
+  * { box-sizing:border-box;margin:0;padding:0; }
+  body { font-family:-apple-system,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;min-height:100vh; }
+  .layout { display:flex;min-height:100vh; }
+
+  /* Sidebar */
+  .sidebar { width:220px;min-width:220px;background:var(--navy);display:flex;flex-direction:column;min-height:100vh;flex-shrink:0; }
+  .logo-area { padding:20px 16px 16px;border-bottom:1px solid rgba(255,255,255,0.08); }
+  .logo-row { display:flex;align-items:center;gap:9px;margin-bottom:3px; }
+  .logo-box { width:32px;height:32px;background:var(--magenta);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff;flex-shrink:0; }
+  .logo-name { font-weight:800;font-size:15px;color:#fff; }
+  .logo-sub { font-size:11px;color:rgba(255,255,255,0.4);padding-left:41px; }
+  .mentor-badge { margin:12px 16px 0;background:rgba(165,8,107,0.2);border:1px solid rgba(165,8,107,0.35);border-radius:8px;padding:8px 12px; }
+  .mb-label { font-size:10px;color:rgba(165,8,107,0.8);font-weight:700;text-transform:uppercase;letter-spacing:0.06em; }
+  .mb-name { font-size:13px;color:#fff;font-weight:600;margin-top:2px; }
+  .nav-sec { font-size:10px;font-weight:700;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.08em;padding:14px 16px 5px; }
+  .nav-item { display:flex;align-items:center;gap:9px;padding:9px 10px 9px 16px;margin:1px 7px;border-radius:8px;font-size:13px;font-weight:500;color:rgba(255,255,255,0.65);cursor:pointer;transition:all .15s; }
+  .nav-item:hover { background:rgba(255,255,255,0.07);color:#fff; }
+  .nav-item.active { background:var(--magenta);color:#fff;font-weight:700; }
+  .nav-icon { font-size:14px;width:18px;text-align:center; }
+  .nav-alert { margin-left:auto;background:var(--coral);color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:20px; }
+
+  /* Main */
+  .main { flex:1;display:flex;flex-direction:column;min-width:0; }
+  .topbar { background:rgba(245,244,240,0.97);border-bottom:1px solid var(--border);padding:11px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50; }
+  .tb-left { display:flex;align-items:center;gap:10px; }
+  .tb-cohort { background:var(--navy);color:rgba(255,255,255,0.65);font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px; }
+  .tb-cohort b { color:var(--magenta); }
+  .tb-week { font-size:12px;color:var(--ink3); }
+  .tb-right { display:flex;align-items:center;gap:10px; }
+  .alert-pill { display:flex;align-items:center;gap:6px;background:var(--coral-l);border:1px solid rgba(255,92,53,0.25);padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;color:var(--coral);cursor:pointer; }
+  .mentor-av { width:32px;height:32px;border-radius:50%;background:var(--magenta);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff; }
+
+  /* Content */
+  .content { padding:22px 24px 40px; }
+
+  /* Stats row */
+  .stats-row { display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px; }
+  .stat { background:var(--white);border-radius:14px;border:1px solid var(--border);padding:14px 16px; }
+  .stat-n { font-weight:800;font-size:26px;line-height:1;margin-bottom:4px; }
+  .stat-l { font-size:11px;color:var(--ink3);line-height:1.3; }
+
+  /* Alerts banner */
+  .alerts-banner { background:var(--coral-l);border:1px solid rgba(255,92,53,0.2);border-radius:14px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:14px; }
+  .ab-icon { width:36px;height:36px;background:var(--coral);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0; }
+  .ab-title { font-weight:800;font-size:14px;color:var(--ink);margin-bottom:2px; }
+  .ab-sub { font-size:12px;color:var(--ink3); }
+  .ab-students { display:flex;gap:6px;margin-left:auto; }
+  .ab-student { background:var(--white);border:1.5px solid var(--coral);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;color:var(--coral);cursor:pointer;white-space:nowrap; }
+
+  /* Section */
+  .sec-head { display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;margin-top:20px; }
+  .sec-title { font-weight:800;font-size:15px;color:var(--ink); }
+  .sec-sub { font-size:12px;color:var(--ink3); }
+  .sec-link { font-size:12px;color:var(--teal);cursor:pointer;font-weight:600; }
+
+  /* Students table */
+  .students-table { background:var(--white);border-radius:16px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px; }
+  .table-header { display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 100px;gap:0;padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--border); }
+  .th { font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:0.05em; }
+  .student-row { display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 100px;gap:0;padding:12px 16px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background .12s; }
+  .student-row:last-child { border-bottom:none; }
+  .student-row:hover { background:var(--bg); }
+  .student-row.alert-red { border-left:3px solid var(--coral); }
+  .student-row.alert-yellow { border-left:3px solid var(--gold); }
+  .s-info { display:flex;align-items:center;gap:10px; }
+  .s-av { width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0; }
+  .s-name { font-size:13px;font-weight:700;color:var(--ink); }
+  .s-meta { font-size:11px;color:var(--ink3); }
+  .s-cell { font-size:12px;color:var(--ink2); }
+  .s-badge { font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;display:inline-block;text-transform:uppercase;letter-spacing:0.04em; }
+  .badge-done { background:var(--green-l);color:var(--green-d); }
+  .badge-pending { background:var(--coral-l);color:var(--coral); }
+  .badge-yellow { background:var(--gold-l);color:#b07a10; }
+  .hours-bar { height:4px;border-radius:2px;background:var(--bg2);overflow:hidden;margin-top:4px; }
+  .hours-fill { height:100%;border-radius:2px; }
+  .action-btn { font-size:11px;font-weight:700;padding:5px 12px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;transition:all .15s; }
+  .action-btn.note { background:var(--teal-l);color:var(--teal); }
+  .action-btn.warn { background:var(--coral-l);color:var(--coral); }
+
+  /* Pods grid */
+  .pods-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px; }
+  .pod-card { background:var(--white);border-radius:14px;border:1px solid var(--border);padding:16px; }
+  .pod-card.has-alert { border-color:var(--coral); }
+  .pod-head { display:flex;align-items:center;justify-content:space-between;margin-bottom:12px; }
+  .pod-name { font-weight:800;font-size:14px;color:var(--ink); }
+  .pod-tz { font-size:11px;color:var(--ink3);margin-top:1px; }
+  .pod-alert-pip { width:9px;height:9px;border-radius:50%;background:var(--coral); }
+  .pod-summary { background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--ink2);line-height:1.6;font-style:italic; }
+  .pod-summary-label { font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-style:normal; }
+  .pod-members-mini { display:flex;gap:4px; }
+  .pm-mini { width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;position:relative; }
+  .pm-mini-alert { position:absolute;top:-1px;right:-1px;width:8px;height:8px;border-radius:50%;background:var(--coral);border:1.5px solid var(--white); }
+
+  /* Deliverables review */
+  .deliverables-list { background:var(--white);border-radius:16px;border:1px solid var(--border);overflow:hidden; }
+  .del-row { display:grid;grid-template-columns:2fr 1fr 1fr 120px;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background .12s; }
+  .del-row:last-child { border-bottom:none; }
+  .del-row:hover { background:var(--bg); }
+  .del-student { font-size:13px;font-weight:700;color:var(--ink); }
+  .del-preview { font-size:12px;color:var(--ink3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px; }
+  .del-week { font-size:12px;color:var(--ink3); }
+  .del-time { font-size:11px;color:var(--ink3); }
+  .btn-review { background:var(--navy);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s; }
+  .btn-review:hover { background:var(--navy2); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo-area">
+      <div class="logo-row">
+        <div class="logo-box">M</div>
+        <div class="logo-name">Prospera</div>
+      </div>
+      <div class="logo-sub">Panel Mentor</div>
+    </div>
+    <div class="mentor-badge">
+      <div class="mb-label">Mentor activo</div>
+      <div class="mb-name">Ana Martínez</div>
+    </div>
+    <div class="nav-sec">Cohorte</div>
+    <div class="nav-item active"><span class="nav-icon">◈</span>Dashboard<span class="nav-alert">3</span></div>
+    <div class="nav-item"><span class="nav-icon">⬡</span>Pods</div>
+    <div class="nav-item"><span class="nav-icon">□</span>Entregables</div>
+    <div class="nav-item"><span class="nav-icon">◑</span>Estudiantes</div>
+    <div class="nav-sec">Sesión</div>
+    <div class="nav-item"><span class="nav-icon">▷</span>Sesión del sábado</div>
+    <div class="nav-item"><span class="nav-icon">◎</span>Reflexiones</div>
+    <div class="nav-sec">Admin</div>
+    <div class="nav-item"><span class="nav-icon">⊕</span>Agregar semana</div>
+    <div class="nav-item"><span class="nav-icon">◈</span>Configuración</div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div class="tb-left">
+        <div class="tb-cohort">Cohorte <b>1</b> · Activa</div>
+        <div class="tb-week">📍 Semana 3 de 6 · Miércoles</div>
+      </div>
+      <div class="tb-right">
+        <div class="alert-pill">⚠ 3 alertas activas</div>
+        <div class="mentor-av">AM</div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat"><div class="stat-n" style="color:var(--green)">24</div><div class="stat-l">Estudiantes activos</div></div>
+        <div class="stat"><div class="stat-n" style="color:var(--gold)">18</div><div class="stat-l">Entregaron semana 3</div></div>
+        <div class="stat"><div class="stat-n" style="color:var(--coral)">3</div><div class="stat-l">Alertas sin resolver</div></div>
+        <div class="stat"><div class="stat-n" style="color:var(--teal)">6</div><div class="stat-l">Pods activos</div></div>
+        <div class="stat"><div class="stat-n" style="color:var(--magenta)">78%</div><div class="stat-l">Tasa de completación</div></div>
+      </div>
+
+      <!-- Alerts -->
+      <div class="alerts-banner">
+        <div class="ab-icon">🚨</div>
+        <div>
+          <div class="ab-title">3 estudiantes necesitan atención hoy</div>
+          <div class="ab-sub">Sin actividad por más de 48 horas — el buddy ya fue notificado automáticamente</div>
+        </div>
+        <div class="ab-students">
+          <div class="ab-student">Miguel · ARG</div>
+          <div class="ab-student">Tomás · MX</div>
+          <div class="ab-student">Lucía · VEN</div>
+        </div>
+      </div>
+
+      <!-- Students table -->
+      <div class="sec-head">
+        <div><div class="sec-title">Estado de estudiantes</div><div class="sec-sub">Semana 3 · Ordenados por actividad reciente</div></div>
+        <div class="sec-link">Ver todos →</div>
+      </div>
+      <div class="students-table">
+        <div class="table-header">
+          <div class="th">Estudiante</div>
+          <div class="th">Entregable</div>
+          <div class="th">Última actividad</div>
+          <div class="th">Reflexión</div>
+          <div class="th">Pod</div>
+          <div class="th"></div>
+        </div>
+        <div class="student-row">
+          <div class="s-info"><div class="s-av" style="background:var(--green)">Va</div><div><div class="s-name">Valentina García</div><div class="s-meta">México · Pod Norteño</div></div></div>
+          <div><span class="s-badge badge-done">Entregado</span></div>
+          <div class="s-cell">hace 2 hrs</div>
+          <div><span class="s-badge badge-yellow">Dom</span></div>
+          <div class="s-cell">Norteño ✦</div>
+          <div><button class="action-btn note">+ Nota</button></div>
+        </div>
+        <div class="student-row">
+          <div class="s-info"><div class="s-av" style="background:var(--coral)">Ro</div><div><div class="s-name">Rodrigo Pérez</div><div class="s-meta">Colombia · Pod Norteño</div></div></div>
+          <div><span class="s-badge badge-done">Entregado</span></div>
+          <div class="s-cell">hace 4 hrs</div>
+          <div><span class="s-badge badge-yellow">Dom</span></div>
+          <div class="s-cell">Norteño</div>
+          <div><button class="action-btn note">+ Nota</button></div>
+        </div>
+        <div class="student-row alert-yellow">
+          <div class="s-info"><div class="s-av" style="background:var(--gold)">So</div><div><div class="s-name">Sofía Mendez</div><div class="s-meta">Perú · Pod Sur</div></div></div>
+          <div><span class="s-badge badge-pending">Pendiente</span></div>
+          <div>
+            <div class="s-cell">hace 31 hrs</div>
+            <div class="hours-bar"><div class="hours-fill" style="width:65%;background:var(--gold)"></div></div>
+          </div>
+          <div><span class="s-badge badge-pending">–</span></div>
+          <div class="s-cell">Sur</div>
+          <div><button class="action-btn warn">Contactar</button></div>
+        </div>
+        <div class="student-row alert-red">
+          <div class="s-info"><div class="s-av" style="background:var(--ink4);color:var(--ink2)">Mi</div><div><div class="s-name">Miguel Torres</div><div class="s-meta">Argentina · Pod Norteño</div></div></div>
+          <div><span class="s-badge badge-pending">Pendiente</span></div>
+          <div>
+            <div class="s-cell" style="color:var(--coral);font-weight:700">hace 53 hrs 🚨</div>
+            <div class="hours-bar"><div class="hours-fill" style="width:100%;background:var(--coral)"></div></div>
+          </div>
+          <div><span class="s-badge badge-pending">–</span></div>
+          <div class="s-cell">Norteño</div>
+          <div><button class="action-btn warn">Contactar</button></div>
+        </div>
+        <div class="student-row">
+          <div class="s-info"><div class="s-av" style="background:var(--teal)">Ca</div><div><div class="s-name">Camila Ruiz</div><div class="s-meta">Venezuela · Pod Norteño</div></div></div>
+          <div><span class="s-badge badge-done">Entregado</span></div>
+          <div class="s-cell">hace 6 hrs</div>
+          <div><span class="s-badge badge-yellow">Dom</span></div>
+          <div class="s-cell">Norteño</div>
+          <div><button class="action-btn note">+ Nota</button></div>
+        </div>
+      </div>
+
+      <!-- Pods -->
+      <div class="sec-head">
+        <div><div class="sec-title">Resúmenes de pods · Semana 3</div><div class="sec-sub">Enviados por los Pod Leaders el viernes</div></div>
+        <div class="sec-link">Ver todos →</div>
+      </div>
+      <div class="pods-grid">
+        <div class="pod-card has-alert">
+          <div class="pod-head">
+            <div><div class="pod-name">Pod Norteño</div><div class="pod-tz">GMT-6 · México / Colombia</div></div>
+            <div class="pod-alert-pip"></div>
+          </div>
+          <div class="pod-summary">
+            <div class="pod-summary-label">Resumen del Pod Leader (Valentina)</div>
+            "Rodrigo y Camila entregaron. Miguel no aparece desde el martes — intenté contactarlo. Estoy trabada con la conexión de Glide al formulario."
+          </div>
+          <div class="pod-members-mini">
+            <div class="pm-mini" style="background:var(--green)">Va</div>
+            <div class="pm-mini" style="background:var(--coral)">Ro</div>
+            <div class="pm-mini" style="background:var(--teal)">Ca</div>
+            <div class="pm-mini" style="background:var(--ink4);color:var(--ink2)">Mi<div class="pm-mini-alert"></div></div>
+          </div>
+        </div>
+        <div class="pod-card">
+          <div class="pod-head">
+            <div><div class="pod-name">Pod Sur</div><div class="pod-tz">GMT-5 / GMT-3 · Peru / Arg</div></div>
+          </div>
+          <div class="pod-summary">
+            <div class="pod-summary-label">Resumen del Pod Leader (Elena)</div>
+            "Todos entregaron excepto Sofía que avisó que tuvo exámenes. Todos los proyectos son muy diferentes — fue interesante el check-in del viernes."
+          </div>
+          <div class="pod-members-mini">
+            <div class="pm-mini" style="background:var(--magenta)">El</div>
+            <div class="pm-mini" style="background:var(--gold)">So<div class="pm-mini-alert" style="background:var(--gold)"></div></div>
+            <div class="pm-mini" style="background:var(--navy2)">Di</div>
+            <div class="pm-mini" style="background:var(--teal)">Ma</div>
+          </div>
+        </div>
+        <div class="pod-card">
+          <div class="pod-head">
+            <div><div class="pod-name">Pod Caribe</div><div class="pod-tz">GMT-4 · Venezuela / Panamá</div></div>
+          </div>
+          <div class="pod-summary">
+            <div class="pod-summary-label">Resumen del Pod Leader (Carlos)</div>
+            "Semana fuerte. Los 4 avanzaron. Daniela tiene el prototipo más funcional del grupo — creo que vale mostrar en el spotlight del sábado."
+          </div>
+          <div class="pod-members-mini">
+            <div class="pm-mini" style="background:var(--coral)">Ca</div>
+            <div class="pm-mini" style="background:var(--green)">Da</div>
+            <div class="pm-mini" style="background:var(--teal)">Lu</div>
+            <div class="pm-mini" style="background:var(--gold)">An</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent deliverables -->
+      <div class="sec-head">
+        <div><div class="sec-title">Entregables recientes para revisar</div></div>
+        <div class="sec-link">Ver todos →</div>
+      </div>
+      <div class="deliverables-list">
+        <div class="del-row">
+          <div><div class="del-student">Valentina García · MX</div><div class="del-preview">https://glide.page/valentina-turnos-mama — Prototipo sistema de turnos para la peluquería de mi mamá</div></div>
+          <div class="del-week">Semana 3</div>
+          <div class="del-time">hace 2 hrs</div>
+          <div><button class="btn-review">Revisar</button></div>
+        </div>
+        <div class="del-row">
+          <div><div class="del-student">Rodrigo Pérez · CO</div><div class="del-preview">https://glide.page/rodrigo-ferreteria — Formulario inteligente para inventario de la ferretería de mi tío</div></div>
+          <div class="del-week">Semana 3</div>
+          <div class="del-time">hace 4 hrs</div>
+          <div><button class="btn-review">Revisar</button></div>
+        </div>
+        <div class="del-row">
+          <div><div class="del-student">Camila Ruiz · VE</div><div class="del-preview">Notion + formulario con IA para gestión de tareas de su club escolar de debate</div></div>
+          <div class="del-week">Semana 3</div>
+          <div class="del-time">hace 6 hrs</div>
+          <div><button class="btn-review">Revisar</button></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

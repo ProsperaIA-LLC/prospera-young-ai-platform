@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prospera Young AI — Onboarding</title>
+<style>
+  :root {
+    --navy:#0E2A47;--teal:#008ca5;--teal-l:#e0f4f8;
+    --green:#00c896;--green-d:#00a87a;--green-l:#d6faf2;
+    --gold:#e0a326;--gold-l:#fef3d7;--coral:#ff5c35;--coral-l:#ffede8;
+    --magenta:#a5086b;--mag-l:#fce8f4;
+    --ink:#111110;--ink2:#3a3936;--ink3:#8a8884;--ink4:#c5c2bb;
+    --bg:#f5f4f0;--bg2:#ebebE4;--white:#ffffff;--border:rgba(17,17,16,0.08);
+  }
+  * { box-sizing:border-box;margin:0;padding:0; }
+  body { font-family:-apple-system,'Segoe UI',system-ui,sans-serif;background:var(--bg);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px; }
+
+  /* Progress bar */
+  .progress-bar { width:100%;max-width:520px;margin-bottom:24px; }
+  .pb-labels { display:flex;justify-content:space-between;margin-bottom:8px; }
+  .pb-label { font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em; }
+  .pb-label.active { color:var(--green); }
+  .pb-track { height:4px;background:var(--bg2);border-radius:2px;overflow:hidden; }
+  .pb-fill { height:100%;background:var(--green);border-radius:2px;transition:width .4s ease; }
+
+  /* Card */
+  .card { background:var(--white);border-radius:20px;border:1px solid var(--border);padding:36px 40px;width:100%;max-width:520px;box-shadow:0 8px 32px rgba(0,0,0,0.06); }
+
+  /* Step header */
+  .step-num { font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px; }
+  .step-title { font-weight:800;font-size:24px;color:var(--ink);margin-bottom:6px; }
+  .step-sub { font-size:14px;color:var(--ink3);line-height:1.6;margin-bottom:28px; }
+
+  /* Steps */
+  .step { display:none; }
+  .step.active { display:block; }
+
+  /* Fields */
+  .field { margin-bottom:18px; }
+  .field label { display:block;font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em; }
+  .field input, .field select { width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;font-size:14px;color:var(--ink);font-family:inherit;outline:none;transition:border-color .15s;appearance:none; }
+  .field input:focus, .field select:focus { border-color:var(--green);background:var(--white); }
+  .field input::placeholder { color:var(--ink4); }
+  .g2 { display:grid;grid-template-columns:1fr 1fr;gap:14px; }
+
+  /* Avatar picker */
+  .avatar-section { margin-bottom:24px; }
+  .avatar-label { font-size:12px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;display:block; }
+  .avatars-grid { display:flex;gap:10px;flex-wrap:wrap; }
+  .avatar-option { width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;border:2.5px solid transparent;transition:all .15s;background:var(--bg2); }
+  .avatar-option:hover { transform:scale(1.1); }
+  .avatar-option.selected { border-color:var(--green);background:var(--green-l); }
+  .avatar-name { font-size:11px;color:var(--ink3);text-align:center;margin-top:4px; }
+
+  /* Preview card */
+  .preview-card { background:var(--navy);border-radius:14px;padding:18px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px; }
+  .preview-av { width:48px;height:48px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;font-weight:800;color:var(--navy); }
+  .preview-name { font-weight:800;font-size:16px;color:#fff; }
+  .preview-sub { font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px; }
+  .preview-badge { margin-left:auto;background:rgba(0,200,150,0.15);border:1px solid rgba(0,200,150,0.3);color:var(--green);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap; }
+
+  /* Consent */
+  .consent-item { display:flex;align-items:flex-start;gap:12px;padding:14px;background:var(--bg);border-radius:10px;margin-bottom:10px;cursor:pointer;border:1.5px solid var(--border);transition:border-color .15s; }
+  .consent-item.checked { border-color:var(--green);background:var(--green-l); }
+  .consent-check { width:20px;height:20px;border-radius:5px;border:2px solid var(--ink4);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s; }
+  .consent-item.checked .consent-check { background:var(--green);border-color:var(--green);color:var(--navy); }
+  .consent-text { font-size:13px;color:var(--ink2);line-height:1.5; }
+  .consent-text b { color:var(--ink);font-weight:700; }
+
+  .parent-notice { background:var(--mag-l);border-radius:10px;padding:12px 14px;margin-bottom:20px;font-size:13px;color:var(--ink2);line-height:1.5;border-left:3px solid var(--magenta); }
+
+  /* Buttons */
+  .btn-row { display:flex;gap:10px;margin-top:24px; }
+  .btn-back { flex:0 0 auto;background:transparent;color:var(--ink3);border:1.5px solid var(--border);border-radius:10px;padding:11px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s; }
+  .btn-back:hover { border-color:var(--ink3);color:var(--ink); }
+  .btn-next { flex:1;background:var(--green);color:var(--navy);border:none;border-radius:10px;padding:12px;font-size:15px;font-weight:800;cursor:pointer;transition:all .15s;font-family:inherit; }
+  .btn-next:hover { background:#00dea6;transform:translateY(-1px); }
+  .btn-next:disabled { background:var(--bg2);color:var(--ink4);cursor:not-allowed;transform:none; }
+
+  /* Success */
+  .success-screen { display:none;text-align:center;padding:20px 0; }
+  .success-screen.show { display:block; }
+  .s-icon { font-size:52px;margin-bottom:16px; }
+  .s-title { font-weight:800;font-size:26px;color:var(--ink);margin-bottom:10px; }
+  .s-sub { font-size:14px;color:var(--ink3);line-height:1.7;margin-bottom:24px; }
+  .s-tags { display:flex;justify-content:center;gap:8px;flex-wrap:wrap; }
+  .s-tag { background:var(--bg);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;color:var(--ink2); }
+</style>
+</head>
+<body>
+
+<div class="progress-bar">
+  <div class="pb-labels">
+    <span class="pb-label active" id="lbl-1">Paso 1 · Tu perfil</span>
+    <span class="pb-label" id="lbl-2">Paso 2 · Tu avatar</span>
+    <span class="pb-label" id="lbl-3">Paso 3 · Consentimiento</span>
+  </div>
+  <div class="pb-track"><div class="pb-fill" id="pbFill" style="width:33%"></div></div>
+</div>
+
+<div class="card">
+  <!-- STEP 1: Profile -->
+  <div class="step active" id="step-1">
+    <div class="step-num">Paso 1 de 3</div>
+    <div class="step-title">¿Cómo te llamamos? 👋</div>
+    <div class="step-sub">Esta información aparece en tu perfil y en el certificado FGU.</div>
+    <div class="field">
+      <label>¿Cómo querés que te llamen?</label>
+      <input type="text" placeholder="Vale, Rodri, Cami..." id="nickname" oninput="updatePreview()">
+    </div>
+    <div class="g2">
+      <div class="field">
+        <label>País</label>
+        <select id="country" onchange="updatePreview()">
+          <option value="">Seleccioná...</option>
+          <option>México 🇲🇽</option>
+          <option>Colombia 🇨🇴</option>
+          <option>Argentina 🇦🇷</option>
+          <option>Venezuela 🇻🇪</option>
+          <option>Perú 🇵🇪</option>
+          <option>Ecuador 🇪🇨</option>
+          <option>Chile 🇨🇱</option>
+          <option>Estados Unidos 🇺🇸</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Zona horaria</label>
+        <select id="timezone">
+          <option>GMT-8 (Los Angeles)</option>
+          <option>GMT-7 (Denver)</option>
+          <option>GMT-6 (Ciudad de México)</option>
+          <option selected>GMT-5 (Bogotá / Lima)</option>
+          <option>GMT-4 (Santiago / Caracas)</option>
+          <option>GMT-3 (Buenos Aires)</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row"><button class="btn-next" onclick="goStep(2)">Continuar →</button></div>
+  </div>
+
+  <!-- STEP 2: Avatar -->
+  <div class="step" id="step-2">
+    <div class="step-num">Paso 2 de 3</div>
+    <div class="step-title">Elegí tu avatar ✨</div>
+    <div class="step-sub">Tu cara visible en el pod y la cohorte.</div>
+
+    <div class="preview-card">
+      <div class="preview-av" id="prevAv">😎</div>
+      <div>
+        <div class="preview-name" id="prevName">Tu nombre</div>
+        <div class="preview-sub" id="prevSub">País · Pod por asignar</div>
+      </div>
+      <div class="preview-badge">Cohorte 1</div>
+    </div>
+
+    <div class="avatar-section">
+      <span class="avatar-label">Elegí un emoji como avatar</span>
+      <div class="avatars-grid" id="avatarGrid"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-back" onclick="goStep(1)">← Atrás</button>
+      <button class="btn-next" onclick="goStep(3)">Continuar →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Consent -->
+  <div class="step" id="step-3">
+    <div class="step-num">Paso 3 de 3</div>
+    <div class="step-title">Últimos detalles 📋</div>
+    <div class="step-sub">Leé y aceptá para activar tu cuenta.</div>
+
+    <div class="parent-notice">✦ <b>Nota para padres:</b> Les enviamos un email separado para confirmar la participación de su hijo/a. Su cuenta se activa completamente cuando confirmen.</div>
+
+    <div class="consent-item" onclick="toggleConsent(this)" id="c1">
+      <div class="consent-check">✓</div>
+      <div class="consent-text"><b>Reglas del programa</b> — Me comprometo a entregar mi trabajo cada semana, a ser honesto/a en mis reflexiones, y a respetar a mis compañeros de pod.</div>
+    </div>
+    <div class="consent-item" onclick="toggleConsent(this)" id="c2">
+      <div class="consent-check"></div>
+      <div class="consent-text"><b>Uso de IA (Próspero)</b> — Entiendo que el tutor IA es una herramienta de apoyo, no un sustituto de mi propio pensamiento. No puedo usar las respuestas de Próspero como mis propias.</div>
+    </div>
+    <div class="consent-item" onclick="toggleConsent(this)" id="c3">
+      <div class="consent-check"></div>
+      <div class="consent-text"><b>Política de privacidad</b> — Acepto que mis datos de aprendizaje se usen para mejorar el programa. No se comparten con terceros.</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-back" onclick="goStep(2)">← Atrás</button>
+      <button class="btn-next" id="btnFinish" onclick="finish()" disabled>Comenzar el programa 🚀</button>
+    </div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div class="success-screen" id="successScreen">
+    <div class="s-icon">🎉</div>
+    <div class="s-title">¡Bienvenida, <span id="successName">Valentina</span>!</div>
+    <div class="s-sub">Tu cuenta está activa. Te asignamos a un pod según tu zona horaria. La semana 1 empieza el próximo lunes — te avisamos por email.</div>
+    <div class="s-tags">
+      <span class="s-tag">📍 Pod por asignar</span>
+      <span class="s-tag">🗓 Semana 1 · Lunes</span>
+      <span class="s-tag">🏆 Certificado FGU</span>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentStep = 1;
+const emojis = ['😎','🚀','⚡','🎯','💡','🦁','🐯','🦊','🐙','🌟','🔥','💎','🌈','🎸','🤖','🧠','🌺','🎮','📱','✨'];
+let selectedEmoji = '😎';
+
+// Build avatar grid
+const grid = document.getElementById('avatarGrid');
+emojis.forEach((e,i) => {
+  const col = document.createElement('div');
+  col.style.textAlign='center';
+  const btn = document.createElement('div');
+  btn.className='avatar-option'+(i===0?' selected':'');
+  btn.textContent=e;
+  btn.onclick=()=>{
+    document.querySelectorAll('.avatar-option').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedEmoji=e;
+    document.getElementById('prevAv').textContent=e;
+  };
+  col.appendChild(btn);
+  grid.appendChild(col);
+});
+
+function updatePreview() {
+  const n = document.getElementById('nickname').value || 'Tu nombre';
+  const c = document.getElementById('country').value || 'País';
+  document.getElementById('prevName').textContent = n;
+  document.getElementById('prevSub').textContent = c + ' · Pod por asignar';
+}
+
+function goStep(n) {
+  document.getElementById('step-'+currentStep).classList.remove('active');
+  currentStep=n;
+  document.getElementById('step-'+n).classList.add('active');
+  document.getElementById('pbFill').style.width=(n/3*100)+'%';
+  ['lbl-1','lbl-2','lbl-3'].forEach((id,i)=>{
+    document.getElementById(id).classList.toggle('active',i+1===n);
+  });
+}
+
+function toggleConsent(el) {
+  el.classList.toggle('checked');
+  const check=el.querySelector('.consent-check');
+  check.textContent=el.classList.contains('checked')?'✓':'';
+  const allChecked = ['c2','c3'].every(id=>document.getElementById(id).classList.contains('checked'));
+  document.getElementById('btnFinish').disabled=!allChecked;
+}
+
+// Pre-check c1
+document.getElementById('c1').classList.add('checked');
+document.getElementById('c1').querySelector('.consent-check').textContent='✓';
+
+function finish() {
+  document.getElementById('step-3').classList.remove('active');
+  document.getElementById('successScreen').classList.add('show');
+  document.getElementById('pbFill').style.width='100%';
+  const n=document.getElementById('nickname').value||'Estudiante';
+  document.getElementById('successName').textContent=n;
+}
+</script>
+</body>
+</html>

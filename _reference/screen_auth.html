@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prospera Young AI — Login</title>
+<style>
+  :root {
+    --navy:#0E2A47;--navy2:#163857;--teal:#008ca5;--teal-l:#e0f4f8;
+    --green:#00c896;--green-d:#00a87a;--green-l:#d6faf2;
+    --gold:#e0a326;--coral:#ff5c35;--coral-l:#ffede8;
+    --magenta:#a5086b;--mag-l:#fce8f4;
+    --ink:#111110;--ink2:#3a3936;--ink3:#8a8884;--ink4:#c5c2bb;
+    --bg:#f5f4f0;--bg2:#ebebE4;--white:#ffffff;--border:rgba(17,17,16,0.08);
+  }
+  * { box-sizing:border-box;margin:0;padding:0; }
+  body { font-family:-apple-system,'Segoe UI',system-ui,sans-serif;background:var(--navy);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px; }
+
+  .page { display:grid;grid-template-columns:1fr 1fr;max-width:900px;width:100%;min-height:580px;border-radius:24px;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,0.4); }
+
+  /* Left — brand */
+  .brand-side { background:var(--navy2);padding:48px 40px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden; }
+  .brand-bg { position:absolute;right:-40px;bottom:-40px;width:280px;height:280px;background:radial-gradient(circle,rgba(0,200,150,0.12) 0%,transparent 70%);pointer-events:none; }
+  .brand-logo { display:flex;align-items:center;gap:10px;margin-bottom:48px; }
+  .brand-box { width:36px;height:36px;background:var(--green);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:var(--navy); }
+  .brand-name { font-weight:800;font-size:18px;color:#fff; }
+  .brand-hero h1 { font-weight:800;font-size:32px;color:#fff;line-height:1.15;margin-bottom:16px; }
+  .brand-hero h1 span { color:var(--green); }
+  .brand-hero p { font-size:14px;color:rgba(255,255,255,0.55);line-height:1.7;max-width:280px; }
+  .brand-stats { display:flex;gap:24px; }
+  .stat { }
+  .stat-n { font-weight:800;font-size:24px;color:var(--green); }
+  .stat-l { font-size:11px;color:rgba(255,255,255,0.4);margin-top:1px; }
+
+  /* Right — form */
+  .form-side { background:var(--white);padding:48px 40px;display:flex;flex-direction:column;justify-content:center; }
+  .form-title { font-weight:800;font-size:22px;color:var(--ink);margin-bottom:6px; }
+  .form-sub { font-size:14px;color:var(--ink3);margin-bottom:32px;line-height:1.5; }
+
+  /* Tabs */
+  .tabs { display:flex;gap:0;margin-bottom:28px;background:var(--bg);border-radius:10px;padding:3px; }
+  .tab-btn { flex:1;padding:8px;border-radius:8px;border:none;background:transparent;font-size:13px;font-weight:600;color:var(--ink3);cursor:pointer;transition:all .15s;font-family:inherit; }
+  .tab-btn.active { background:var(--white);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+
+  /* Forms */
+  .form-panel { display:none; }
+  .form-panel.active { display:block; }
+
+  .field { margin-bottom:16px; }
+  .field label { display:block;font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em; }
+  .field input { width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;font-size:14px;color:var(--ink);font-family:inherit;outline:none;transition:border-color .15s; }
+  .field input:focus { border-color:var(--green);background:var(--white); }
+  .field input::placeholder { color:var(--ink4); }
+
+  .btn-primary { display:block;width:100%;background:var(--green);color:var(--navy);border:none;border-radius:10px;padding:12px;font-size:15px;font-weight:800;cursor:pointer;transition:all .15s;font-family:inherit;margin-top:8px; }
+  .btn-primary:hover { background:#00dea6;transform:translateY(-1px); }
+
+  .divider { display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--ink4);font-size:12px; }
+  .divider::before,.divider::after { content:'';flex:1;height:1px;background:var(--border); }
+
+  .magic-link-box { background:var(--bg);border-radius:12px;padding:16px;border:1.5px dashed var(--bg2); }
+  .magic-link-title { font-size:13px;font-weight:700;color:var(--ink2);margin-bottom:4px; }
+  .magic-link-desc { font-size:12px;color:var(--ink3);line-height:1.5;margin-bottom:12px; }
+  .btn-magic { display:block;width:100%;background:var(--navy);color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit; }
+  .btn-magic:hover { background:var(--navy2); }
+
+  /* Success state */
+  .success-state { display:none;text-align:center;padding:20px 0; }
+  .success-icon { width:56px;height:56px;background:var(--green-l);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 16px; }
+  .success-title { font-weight:800;font-size:18px;color:var(--ink);margin-bottom:8px; }
+  .success-sub { font-size:13px;color:var(--ink3);line-height:1.6; }
+
+  .form-footer { margin-top:20px;font-size:12px;color:var(--ink3);text-align:center;line-height:1.6; }
+  .form-footer a { color:var(--teal);font-weight:600;cursor:pointer; }
+
+  /* Consent notice */
+  .consent-notice { background:var(--mag-l);border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:12px;color:var(--ink2);line-height:1.5;border-left:3px solid var(--magenta); }
+</style>
+</head>
+<body>
+<div class="page">
+  <!-- Brand side -->
+  <div class="brand-side">
+    <div class="brand-bg"></div>
+    <div>
+      <div class="brand-logo">
+        <div class="brand-box">P</div>
+        <div class="brand-name">Prospera Young AI</div>
+      </div>
+      <div class="brand-hero">
+        <h1>Construí algo <span>real</span> en 6 semanas.</h1>
+        <p>El programa intensivo para jóvenes latinos de 14 a 18 años que quieren crear con inteligencia artificial — desde el día 1.</p>
+      </div>
+    </div>
+    <div class="brand-stats">
+      <div class="stat"><div class="stat-n">6</div><div class="stat-l">semanas intensivas</div></div>
+      <div class="stat"><div class="stat-n">100%</div><div class="stat-l">virtual y en español</div></div>
+      <div class="stat"><div class="stat-n">FGU</div><div class="stat-l">certificación</div></div>
+    </div>
+  </div>
+
+  <!-- Form side -->
+  <div class="form-side">
+    <div class="form-title">Bienvenido/a 👋</div>
+    <div class="form-sub">Ingresá a tu portal o registrate para la próxima cohorte.</div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('login')">Ya tengo cuenta</button>
+      <button class="tab-btn" onclick="switchTab('register')">Registrarme</button>
+    </div>
+
+    <!-- Login -->
+    <div class="form-panel active" id="panel-login">
+      <div class="magic-link-box">
+        <div class="magic-link-title">🔗 Acceso por link mágico</div>
+        <div class="magic-link-desc">Te mandamos un link a tu email. Sin contraseña, sin complicaciones.</div>
+        <div class="field" style="margin-bottom:12px">
+          <input type="email" placeholder="tu@email.com" id="loginEmail">
+        </div>
+        <button class="btn-magic" onclick="sendMagicLink()">Enviar link de acceso →</button>
+      </div>
+      <div class="success-state" id="loginSuccess">
+        <div class="success-icon">✉️</div>
+        <div class="success-title">¡Revisá tu email!</div>
+        <div class="success-sub">Te mandamos un link de acceso. Expira en 10 minutos.<br>No olvides revisar tu carpeta de spam.</div>
+      </div>
+      <div class="form-footer">¿No tenés cuenta aún? <a onclick="switchTab('register')">Registrate acá</a></div>
+    </div>
+
+    <!-- Register -->
+    <div class="form-panel" id="panel-register">
+      <div class="consent-notice">✦ Para menores de 18 años se requiere autorización de un padre o tutor. Les enviaremos un email de consentimiento.</div>
+      <div class="field">
+        <label>Nombre completo</label>
+        <input type="text" placeholder="Valentina García">
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" placeholder="tu@email.com">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="field">
+          <label>País</label>
+          <input type="text" placeholder="México">
+        </div>
+        <div class="field">
+          <label>Edad</label>
+          <input type="number" placeholder="16" min="14" max="18">
+        </div>
+      </div>
+      <button class="btn-primary" onclick="handleRegister()">Reservar mi lugar →</button>
+      <div class="form-footer">Al registrarte aceptás los <a>términos del programa</a>.<br>Tu lugar se confirma al completar el pago.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (tab==='login'&&i===0)||(tab==='register'&&i===1)));
+  document.getElementById('panel-login').classList.toggle('active', tab==='login');
+  document.getElementById('panel-register').classList.toggle('active', tab==='register');
+}
+function sendMagicLink() {
+  const email = document.getElementById('loginEmail').value;
+  if (!email) return;
+  document.querySelector('.magic-link-box').style.display='none';
+  document.getElementById('loginSuccess').style.display='block';
+}
+function handleRegister() {
+  alert('En producción: redirige a /apply para completar pago con Stripe');
+}
+</script>
+</body>
+</html>

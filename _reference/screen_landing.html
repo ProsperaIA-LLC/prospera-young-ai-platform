@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prospera Young AI — Construí algo real</title>
+<style>
+  :root {
+    --navy:#0E2A47;--navy2:#163857;--teal:#008ca5;--teal-l:#e0f4f8;
+    --green:#00c896;--green-d:#00a87a;--green-l:#d6faf2;
+    --gold:#e0a326;--gold-l:#fef3d7;--coral:#ff5c35;--coral-l:#ffede8;
+    --magenta:#a5086b;--mag-l:#fce8f4;
+    --ink:#111110;--ink2:#3a3936;--ink3:#8a8884;--ink4:#c5c2bb;
+    --bg:#f5f4f0;--bg2:#ebebE4;--white:#ffffff;--border:rgba(17,17,16,0.08);
+  }
+  * { box-sizing:border-box;margin:0;padding:0; }
+  body { font-family:-apple-system,'Segoe UI',system-ui,sans-serif;background:var(--white);color:var(--ink);font-size:15px;line-height:1.5; }
+
+  /* NAV */
+  nav { position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:14px 5%;display:flex;align-items:center;justify-content:space-between; }
+  .nav-logo { display:flex;align-items:center;gap:9px; }
+  .nav-box { width:32px;height:32px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;color:var(--navy); }
+  .nav-name { font-weight:800;font-size:16px;color:var(--ink); }
+  .nav-links { display:flex;align-items:center;gap:28px; }
+  .nav-link { font-size:14px;font-weight:500;color:var(--ink3);cursor:pointer;text-decoration:none;transition:color .15s; }
+  .nav-link:hover { color:var(--ink); }
+  .nav-cta { background:var(--navy);color:#fff;border:none;border-radius:9px;padding:9px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s; }
+  .nav-cta:hover { background:var(--navy2); }
+
+  /* HERO */
+  .hero { background:var(--navy);padding:80px 5% 72px;position:relative;overflow:hidden; }
+  .hero-glow1 { position:absolute;right:-80px;top:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(0,200,150,0.14) 0%,transparent 70%);pointer-events:none; }
+  .hero-glow2 { position:absolute;left:30%;bottom:-60px;width:300px;height:300px;background:radial-gradient(circle,rgba(0,140,165,0.08) 0%,transparent 70%);pointer-events:none; }
+  .hero-inner { max-width:720px;margin:0 auto;text-align:center;position:relative;z-index:1; }
+  .hero-badge { display:inline-flex;align-items:center;gap:8px;background:rgba(0,200,150,0.12);border:1px solid rgba(0,200,150,0.25);border-radius:20px;padding:6px 16px;margin-bottom:24px; }
+  .hero-badge-dot { width:7px;height:7px;border-radius:50%;background:var(--green); }
+  .hero-badge-text { font-size:12px;font-weight:700;color:var(--green); }
+  .hero h1 { font-weight:900;font-size:48px;color:#fff;line-height:1.1;margin-bottom:18px;letter-spacing:-1px; }
+  .hero h1 span { color:var(--green); }
+  .hero p { font-size:17px;color:rgba(255,255,255,0.6);line-height:1.7;max-width:560px;margin:0 auto 36px; }
+  .hero-btns { display:flex;gap:12px;justify-content:center;flex-wrap:wrap; }
+  .btn-hero-primary { background:var(--green);color:var(--navy);border:none;border-radius:12px;padding:14px 28px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .15s; }
+  .btn-hero-primary:hover { background:#00dea6;transform:translateY(-2px); }
+  .btn-hero-secondary { background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:14px 24px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s; }
+  .btn-hero-secondary:hover { background:rgba(255,255,255,0.14); }
+  .hero-stats { display:flex;justify-content:center;gap:40px;margin-top:48px;padding-top:32px;border-top:1px solid rgba(255,255,255,0.08); }
+  .hs { text-align:center; }
+  .hs-n { font-weight:900;font-size:28px;color:var(--green); }
+  .hs-l { font-size:12px;color:rgba(255,255,255,0.45);margin-top:2px; }
+
+  /* MARKETS */
+  .markets { padding:64px 5%;background:var(--bg); }
+  .markets-inner { max-width:900px;margin:0 auto; }
+  .section-tag { font-size:11px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px; }
+  .section-title { font-weight:900;font-size:32px;color:var(--ink);margin-bottom:12px;line-height:1.15; }
+  .section-sub { font-size:15px;color:var(--ink3);line-height:1.7;max-width:540px;margin-bottom:36px; }
+  .markets-grid { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
+  .market-card { border-radius:18px;padding:28px;border:1px solid var(--border);position:relative;overflow:hidden; }
+  .market-card.usa { background:var(--navy); }
+  .market-card.latam { background:var(--white); }
+  .mc-flag { font-size:32px;margin-bottom:14px; }
+  .mc-tag { display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:3px 10px;border-radius:20px;margin-bottom:12px; }
+  .usa .mc-tag { background:rgba(0,200,150,0.15);color:var(--green); }
+  .latam .mc-tag { background:var(--teal-l);color:var(--teal); }
+  .mc-title { font-weight:900;font-size:20px;margin-bottom:8px; }
+  .usa .mc-title { color:#fff; }
+  .latam .mc-title { color:var(--ink); }
+  .mc-desc { font-size:14px;line-height:1.65;margin-bottom:16px; }
+  .usa .mc-desc { color:rgba(255,255,255,0.6); }
+  .latam .mc-desc { color:var(--ink3); }
+  .mc-price { display:flex;align-items:baseline;gap:6px;margin-bottom:16px; }
+  .mc-price-n { font-weight:900;font-size:32px; }
+  .usa .mc-price-n { color:var(--green); }
+  .latam .mc-price-n { color:var(--teal); }
+  .mc-price-l { font-size:13px; }
+  .usa .mc-price-l { color:rgba(255,255,255,0.4); }
+  .latam .mc-price-l { color:var(--ink3); }
+  .mc-early { font-size:12px;font-weight:700;margin-bottom:20px; }
+  .usa .mc-early { color:var(--gold); }
+  .latam .mc-early { color:var(--gold); }
+  .mc-btn { display:block;width:100%;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .15s;text-align:center; }
+  .usa .mc-btn { background:var(--green);color:var(--navy); }
+  .latam .mc-btn { background:var(--navy);color:#fff; }
+  .mc-btn:hover { transform:translateY(-1px); }
+  .mc-scholarship { margin-top:10px;text-align:center;font-size:12px; }
+  .usa .mc-scholarship { color:rgba(255,255,255,0.4); }
+  .latam .mc-scholarship { color:var(--ink3); }
+  .mc-scholarship a { font-weight:700; }
+  .usa .mc-scholarship a { color:var(--green); }
+  .latam .mc-scholarship a { color:var(--teal); }
+
+  /* HOW IT WORKS */
+  .how { padding:72px 5%;background:var(--white); }
+  .how-inner { max-width:900px;margin:0 auto; }
+  .weeks-timeline { display:flex;flex-direction:column;gap:12px;margin-top:32px; }
+  .week-item { display:grid;grid-template-columns:80px 1fr;gap:20px;align-items:start; }
+  .week-num-col { text-align:right;padding-top:14px; }
+  .week-num { font-weight:900;font-size:28px;color:var(--bg2);line-height:1; }
+  .week-card { background:var(--bg);border-radius:14px;padding:16px 20px;border:1px solid var(--border); }
+  .week-phase { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px; }
+  .phase-despertar { color:var(--teal); }
+  .phase-construir { color:var(--coral); }
+  .phase-lanzar { color:var(--green); }
+  .week-title { font-weight:800;font-size:15px;color:var(--ink);margin-bottom:4px; }
+  .week-deliverable { font-size:13px;color:var(--ink3); }
+  .week-tools { display:flex;gap:6px;margin-top:8px;flex-wrap:wrap; }
+  .tool-chip { font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;background:var(--white);border:1px solid var(--border);color:var(--ink2); }
+
+  /* FEATURES */
+  .features { padding:72px 5%;background:var(--navy); }
+  .features-inner { max-width:900px;margin:0 auto; }
+  .features .section-title { color:#fff; }
+  .features .section-sub { color:rgba(255,255,255,0.5); }
+  .features-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:32px; }
+  .feature-card { background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:22px; }
+  .f-icon { width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:14px; }
+  .f-title { font-weight:800;font-size:15px;color:#fff;margin-bottom:6px; }
+  .f-desc { font-size:13px;color:rgba(255,255,255,0.5);line-height:1.65; }
+
+  /* PRÓSPERO FEATURE */
+  .prospero-section { padding:64px 5%;background:var(--mag-l); }
+  .prospero-inner { max-width:900px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center; }
+  .prospero-left .section-tag { color:var(--magenta); }
+  .prospero-left .section-title { color:var(--ink); }
+  .prospero-left .section-sub { color:var(--ink3);margin-bottom:0; }
+  .chat-preview { background:var(--navy);border-radius:18px;padding:20px;box-shadow:0 16px 48px rgba(14,42,71,0.2); }
+  .cp-header { display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08); }
+  .cp-av { width:36px;height:36px;border-radius:50%;background:var(--magenta);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;position:relative; }
+  .cp-dot { position:absolute;bottom:0;right:0;width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid var(--navy); }
+  .cp-name { font-weight:800;font-size:14px;color:#fff; }
+  .cp-status { font-size:11px;color:rgba(255,255,255,0.4); }
+  .cp-msgs { display:flex;flex-direction:column;gap:10px; }
+  .cp-msg { max-width:85%;padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.5; }
+  .cp-msg.bot { background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.85);border-radius:4px 14px 14px 14px; }
+  .cp-msg.user { background:var(--magenta);color:#fff;border-radius:14px 4px 14px 14px;align-self:flex-end; }
+
+  /* CTA FINAL */
+  .cta-final { padding:80px 5%;background:var(--green);text-align:center; }
+  .cta-final h2 { font-weight:900;font-size:36px;color:var(--navy);margin-bottom:12px;line-height:1.15; }
+  .cta-final p { font-size:16px;color:rgba(14,42,71,0.7);margin-bottom:32px;max-width:480px;margin-left:auto;margin-right:auto; }
+  .cta-final-btns { display:flex;gap:12px;justify-content:center;flex-wrap:wrap; }
+  .btn-cta-dark { background:var(--navy);color:#fff;border:none;border-radius:12px;padding:14px 28px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .15s; }
+  .btn-cta-dark:hover { background:var(--navy2);transform:translateY(-1px); }
+  .btn-cta-outline { background:transparent;color:var(--navy);border:2px solid rgba(14,42,71,0.25);border-radius:12px;padding:14px 24px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s; }
+  .btn-cta-outline:hover { background:rgba(14,42,71,0.08); }
+
+  /* FOOTER */
+  footer { background:var(--navy);padding:32px 5%;display:flex;align-items:center;justify-content:space-between; }
+  .footer-logo { display:flex;align-items:center;gap:8px; }
+  .footer-logo-box { width:26px;height:26px;background:var(--green);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;color:var(--navy); }
+  .footer-name { font-weight:700;font-size:14px;color:#fff; }
+  .footer-text { font-size:12px;color:rgba(255,255,255,0.3); }
+  .footer-links { display:flex;gap:20px; }
+  .footer-link { font-size:12px;color:rgba(255,255,255,0.4);cursor:pointer;text-decoration:none;transition:color .15s; }
+  .footer-link:hover { color:rgba(255,255,255,0.8); }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <div class="nav-box">P</div>
+    <div class="nav-name">Prospera Young AI</div>
+  </div>
+  <div class="nav-links">
+    <a class="nav-link">Programa</a>
+    <a class="nav-link">Precios</a>
+    <a class="nav-link">Becas</a>
+    <a class="nav-link">FAQ</a>
+    <button class="nav-cta" onclick="document.getElementById('precios').scrollIntoView({behavior:'smooth'})">Reservar lugar →</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow1"></div>
+  <div class="hero-glow2"></div>
+  <div class="hero-inner">
+    <div class="hero-badge">
+      <div class="hero-badge-dot"></div>
+      <div class="hero-badge-text">Cohorte 1 · Abre inscripciones pronto · Certificación FGU</div>
+    </div>
+    <h1>Construí algo<br><span>real con IA</span><br>en 6 semanas.</h1>
+    <p>El programa intensivo para jóvenes latinos de 14 a 18 años. No aprendés sobre IA — la usás para resolver un problema real desde el día 1.</p>
+    <div class="hero-btns">
+      <button class="btn-hero-primary" onclick="document.getElementById('precios').scrollIntoView({behavior:'smooth'})">Quiero mi lugar →</button>
+      <button class="btn-hero-secondary">Ver cómo funciona ↓</button>
+    </div>
+    <div class="hero-stats">
+      <div class="hs"><div class="hs-n">6</div><div class="hs-l">semanas intensivas</div></div>
+      <div class="hs"><div class="hs-n">100%</div><div class="hs-l">virtual y en español</div></div>
+      <div class="hs"><div class="hs-n">14–18</div><div class="hs-l">años</div></div>
+      <div class="hs"><div class="hs-n">FGU</div><div class="hs-l">certificación oficial</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how">
+  <div class="how-inner">
+    <div class="section-tag">El programa</div>
+    <div class="section-title">6 semanas. Un producto real.<br>Un Demo Day público.</div>
+    <div class="section-sub">Cada semana tiene un reto, un entregable concreto, y una señal de éxito clara. No hay examen final — hay un producto que funciona.</div>
+    <div class="weeks-timeline">
+      <div class="week-item">
+        <div class="week-num-col"><div class="week-num">1</div></div>
+        <div class="week-card">
+          <div class="week-phase phase-despertar">Fase Despertar</div>
+          <div class="week-title">El problema que te duele</div>
+          <div class="week-deliverable">→ Entrevistás 3 personas reales y encontrás evidencia de que el problema existe</div>
+          <div class="week-tools"><span class="tool-chip">Claude</span><span class="tool-chip">Notion</span></div>
+        </div>
+      </div>
+      <div class="week-item">
+        <div class="week-num-col"><div class="week-num">2</div></div>
+        <div class="week-card">
+          <div class="week-phase phase-despertar">Fase Despertar</div>
+          <div class="week-title">IA como forma de pensar</div>
+          <div class="week-deliverable">→ Resolvés tu problema con IA en 30 minutos (sin teoría previa) y aprendés del intento</div>
+          <div class="week-tools"><span class="tool-chip">Claude</span><span class="tool-chip">Prompting avanzado</span></div>
+        </div>
+      </div>
+      <div class="week-item">
+        <div class="week-num-col"><div class="week-num">3</div></div>
+        <div class="week-card">
+          <div class="week-phase phase-construir">Fase Construir</div>
+          <div class="week-title">Algo real en 5 días</div>
+          <div class="week-deliverable">→ Un prototipo que alguien que no te conoce puede usar sin instrucciones</div>
+          <div class="week-tools"><span class="tool-chip">Claude Code</span><span class="tool-chip">Glide</span></div>
+        </div>
+      </div>
+      <div class="week-item">
+        <div class="week-num-col"><div class="week-num">4</div></div>
+        <div class="week-card">
+          <div class="week-phase phase-construir">Fase Construir</div>
+          <div class="week-title">Las 3 preguntas del negocio</div>
+          <div class="week-deliverable">→ Modelo de negocio en 1 página con 2 precios confirmados por personas reales</div>
+          <div class="week-tools"><span class="tool-chip">Claude</span><span class="tool-chip">Experimento de precio</span></div>
+        </div>
+      </div>
+      <div class="week-item">
+        <div class="week-num-col"><div class="week-num">5</div></div>
+        <div class="week-card">
+          <div class="week-phase phase-construir">Fase Construir</div>
+          <div class="week-title">Agentes que trabajan mientras dormís</div>
+          <div class="week-deliverable">→ Un agente de IA que automatiza al menos 30 minutos de trabajo semanal en tu proyecto</div>
+          <div class="week-tools"><span class="tool-chip">n8n</span><span class="tool-chip">Make</span><span class="tool-chip">Claude API</span></div>
+        </div>
+      </div>
+      <div class="week-item">
+        <div class="week-num-col"><div class="week-num">6</div></div>
+        <div class="week-card" style="border-color:var(--green);background:var(--green-l)">
+          <div class="week-phase phase-lanzar">Fase Lanzar</div>
+          <div class="week-title">Demo Day: tu primer hito público 🏆</div>
+          <div class="week-deliverable">→ Pitch de 5 minutos + producto publicado en vivo + certificado FGU</div>
+          <div class="week-tools"><span class="tool-chip">Pitch</span><span class="tool-chip">Demo en vivo</span><span class="tool-chip">Certificado FGU</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features">
+  <div class="features-inner">
+    <div class="section-tag" style="color:var(--teal)">Por qué Prospera</div>
+    <div class="section-title">Todo lo que un programa online<br>nunca te había dado.</div>
+    <div class="section-sub">Diseñado específicamente para jóvenes latinos — no es un programa de adultos reducido.</div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="f-icon" style="background:rgba(0,200,150,0.15)">⚡</div>
+        <div class="f-title">Construís desde el día 1</div>
+        <div class="f-desc">No hay semanas de teoría antes de tocar herramientas. El primer día ya tenés un primer intento con IA.</div>
+      </div>
+      <div class="feature-card">
+        <div class="f-icon" style="background:rgba(0,140,165,0.15)">⬡</div>
+        <div class="f-title">Sistema de pods y buddy</div>
+        <div class="f-desc">Trabajás en grupos de 4–5 con un compañero asignado. Hay accountability real, no solo motivación.</div>
+      </div>
+      <div class="feature-card">
+        <div class="f-icon" style="background:rgba(165,8,107,0.15)">✦</div>
+        <div class="f-title">Próspero: tu tutor IA 24/7</div>
+        <div class="f-desc">Un tutor con IA basado en Claude, disponible siempre, que conoce tu proyecto y te guía sin hacer el trabajo por vos.</div>
+      </div>
+      <div class="feature-card">
+        <div class="f-icon" style="background:rgba(224,163,38,0.15)">🏆</div>
+        <div class="f-title">Certificación FGU</div>
+        <div class="f-desc">Al terminar recibís un certificado oficial de la FGU que acredita tus competencias en emprendimiento e IA.</div>
+      </div>
+      <div class="feature-card">
+        <div class="f-icon" style="background:rgba(255,92,53,0.15)">🌎</div>
+        <div class="f-title">Red latinoamericana</div>
+        <div class="f-desc">Conectás con jóvenes de México, Colombia, Argentina, Perú, Venezuela y toda la región con tu misma mentalidad.</div>
+      </div>
+      <div class="feature-card">
+        <div class="f-icon" style="background:rgba(0,200,150,0.15)">🧠</div>
+        <div class="f-title">Método finlandés</div>
+        <div class="f-desc">Reflexión semanal, sin ranking entre estudiantes, y aprendizaje desde problemas reales — no desde teoría abstracta.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRÓSPERO -->
+<section class="prospero-section">
+  <div class="prospero-inner">
+    <div class="prospero-left">
+      <div class="section-tag">Tutor IA</div>
+      <div class="section-title" style="font-size:28px">Próspero está con vos a las 11pm cuando estás trabado/a.</div>
+      <div class="section-sub" style="margin-top:12px">No reemplaza al mentor humano. Te guía con preguntas, te ayuda a pensar, y sabe exactamente en qué semana y con qué herramientas estás trabajando.</div>
+    </div>
+    <div class="chat-preview">
+      <div class="cp-header">
+        <div class="cp-av">✦<div class="cp-dot"></div></div>
+        <div><div class="cp-name">Próspero · Tutor IA</div><div class="cp-status">Disponible ahora · Semana 3</div></div>
+      </div>
+      <div class="cp-msgs">
+        <div class="cp-msg user">No entiendo por qué mi prototipo en Glide no guarda los datos del formulario 😩</div>
+        <div class="cp-msg bot">Antes de buscar el error técnico — ¿pudiste ver exactamente en qué momento falla? ¿El formulario se envía y los datos no aparecen, o el botón de envío no responde?</div>
+        <div class="cp-msg user">El botón sí responde pero los datos no aparecen en la hoja</div>
+        <div class="cp-msg bot">Ahí está el problema. En Glide, el formulario guarda en la hoja fuente del componente — no en cualquier hoja. ¿Tu tabla de datos está conectada como fuente del form o la creaste separada? 🔍</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRECIOS -->
+<section style="padding:72px 5%;background:var(--bg)" id="precios">
+  <div style="max-width:900px;margin:0 auto">
+    <div class="section-tag">Precios</div>
+    <div class="section-title">Elegí tu mercado.</div>
+    <div class="section-sub">Precios en dólares USD. Early bird disponible las primeras 3 semanas de inscripción.</div>
+    <div class="markets-grid">
+      <div class="market-card usa">
+        <div class="mc-flag">🇺🇸</div>
+        <div class="mc-tag">Para Estados Unidos</div>
+        <div class="mc-title">Latinos & hijos de latinos en USA</div>
+        <div class="mc-desc">Si vivís en Estados Unidos y querés un programa 100% en español con certificación internacional y red latinoamericana.</div>
+        <div class="mc-price"><div class="mc-price-n">$797</div><div class="mc-price-l">USD · precio completo</div></div>
+        <div class="mc-early">🔥 Early bird: $497 — primeros 21 días</div>
+        <button class="mc-btn">Reservar lugar USA →</button>
+        <div class="mc-scholarship">¿No podés pagarlo? <a href="#">Aplicá a una beca →</a></div>
+      </div>
+      <div class="market-card latam">
+        <div class="mc-flag">🌎</div>
+        <div class="mc-tag">Para Latinoamérica</div>
+        <div class="mc-title">Jóvenes de LATAM</div>
+        <div class="mc-desc">Si vivís en México, Colombia, Argentina, Perú, Venezuela, Ecuador, Chile o cualquier país de la región.</div>
+        <div class="mc-price"><div class="mc-price-n">$297</div><div class="mc-price-l">USD · precio completo</div></div>
+        <div class="mc-early">🔥 Early bird: $197 — primeros 21 días</div>
+        <button class="mc-btn">Reservar lugar LATAM →</button>
+        <div class="mc-scholarship">¿No podés pagarlo? <a href="#">Aplicá a una beca →</a></div>
+      </div>
+    </div>
+    <div style="background:var(--white);border-radius:14px;padding:20px 24px;margin-top:16px;border:1px solid var(--border);display:flex;align-items:center;gap:16px">
+      <div style="font-size:24px">🎓</div>
+      <div>
+        <div style="font-weight:800;font-size:15px;color:var(--ink);margin-bottom:3px">Becas completas disponibles</div>
+        <div style="font-size:13px;color:var(--ink3)">Reservamos 5 cupos por cohorte para estudiantes con talento y motivación que no pueden pagar. El proceso incluye carta de motivación, video de 60 segundos y carta de un referente.</div>
+      </div>
+      <button style="flex-shrink:0;background:var(--navy);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">Aplicar a beca →</button>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-final">
+  <h2>Tu primer producto real<br>te espera.</h2>
+  <p>6 semanas. Un problema tuyo. Una cohorte de jóvenes como vos. Empezamos pronto.</p>
+  <div class="cta-final-btns">
+    <button class="btn-cta-dark">Reservar mi lugar →</button>
+    <button class="btn-cta-outline">Aplicar a beca</button>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">
+    <div class="footer-logo-box">P</div>
+    <div class="footer-name">Prospera Young AI</div>
+  </div>
+  <div class="footer-text">© 2025 Prospera IA LLC · Todos los derechos reservados</div>
+  <div class="footer-links">
+    <a class="footer-link">Términos</a>
+    <a class="footer-link">Privacidad</a>
+    <a class="footer-link">Contacto</a>
+  </div>
+</footer>
+
+</body>
+</html>
