@@ -4,34 +4,54 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-const TIMEZONES = [
-  { value: 'America/Mexico_City',    label: 'México / Guatemala / Costa Rica (GMT-6)' },
-  { value: 'America/Bogota',         label: 'Colombia / Perú / Ecuador (GMT-5)' },
-  { value: 'America/Caracas',        label: 'Venezuela (GMT-4)' },
-  { value: 'America/Santiago',       label: 'Chile / Paraguay (GMT-4/-3)' },
-  { value: 'America/Argentina/Buenos_Aires', label: 'Argentina / Uruguay (GMT-3)' },
-  { value: 'America/New_York',       label: 'EST — Nueva York / Miami (GMT-5)' },
-  { value: 'America/Chicago',        label: 'CST — Chicago / Houston (GMT-6)' },
-  { value: 'America/Los_Angeles',    label: 'PST — Los Ángeles (GMT-8)' },
+const EMOJIS = ['😎','🚀','⚡','🎯','💡','🦁','🐯','🦊','🐙','🌟','🔥','💎','🌈','🎸','🤖','🧠','🌺','🎮','📱','✨']
+
+const COUNTRIES = [
+  { code: 'MX', label: 'México 🇲🇽' },
+  { code: 'CO', label: 'Colombia 🇨🇴' },
+  { code: 'AR', label: 'Argentina 🇦🇷' },
+  { code: 'VE', label: 'Venezuela 🇻🇪' },
+  { code: 'PE', label: 'Perú 🇵🇪' },
+  { code: 'EC', label: 'Ecuador 🇪🇨' },
+  { code: 'CL', label: 'Chile 🇨🇱' },
+  { code: 'US', label: 'Estados Unidos 🇺🇸' },
+  { code: 'OTHER', label: 'Otro' },
 ]
 
-const AVATARS = ['🦁', '🐯', '🦊', '🐺', '🦅', '🦋', '🐉', '⚡', '🌟', '🔥', '🌊', '🌿']
+const TIMEZONES = [
+  { value: 'America/Los_Angeles',             label: 'GMT-8 (Los Angeles)' },
+  { value: 'America/Denver',                  label: 'GMT-7 (Denver)' },
+  { value: 'America/Mexico_City',             label: 'GMT-6 (Ciudad de México)' },
+  { value: 'America/Bogota',                  label: 'GMT-5 (Bogotá / Lima)' },
+  { value: 'America/Santiago',                label: 'GMT-4 (Santiago / Caracas)' },
+  { value: 'America/Argentina/Buenos_Aires',  label: 'GMT-3 (Buenos Aires)' },
+]
 
-type Step = 1 | 2 | 3
+type Step = 1 | 2 | 3 | 'success'
+
+const STEP_LABELS = ['Paso 1 · Tu perfil', 'Paso 2 · Tu avatar', 'Paso 3 · Consentimiento']
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const [step, setStep] = useState<Step>(1)
+
+  const [step, setStep]   = useState<Step>(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [step1, setStep1] = useState({ nickname: '', country: '', timezone: '' })
-  const [step2, setStep2] = useState({ avatarEmoji: '🦁' })
-  const [step3, setStep3] = useState({
-    parentConsentSigned: false,
-    termsAccepted: false,
-    programRulesAccepted: false,
-  })
+  // Step 1
+  const [nickname, setNickname] = useState('')
+  const [country, setCountry]   = useState('')
+  const [timezone, setTimezone] = useState('America/Bogota')
+
+  // Step 2
+  const [avatar, setAvatar] = useState('😎')
+
+  // Step 3
+  const [c1, setC1] = useState(true)   // program rules — pre-checked
+  const [c2, setC2] = useState(false)  // AI use
+  const [c3, setC3] = useState(false)  // privacy
+
+  const progressPct = step === 'success' ? 100 : ((step as number) / 3) * 100
 
   async function handleFinish() {
     setLoading(true)
@@ -41,276 +61,281 @@ export default function OnboardingPage() {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      setError('Sesión expirada. Volvé a ingresar.')
+      setError('Sesión expirada. Volvé a iniciar sesión.')
       setLoading(false)
       return
     }
 
-    const { error } = await supabase
+    const market = country === 'US' ? 'USA' : 'LATAM'
+
+    const { error: upsertError } = await supabase
       .from('users')
       .upsert({
         id: user.id,
         email: user.email!,
-        full_name: user.user_metadata?.full_name || '',
-        nickname: step1.nickname || user.user_metadata?.nickname,
-        country: step1.country || user.user_metadata?.country,
-        timezone: step1.timezone,
-        age: user.user_metadata?.age,
-        market: user.user_metadata?.market || (step1.country === 'US' ? 'USA' : 'LATAM'),
-        avatar_url: step2.avatarEmoji,
-        parent_consent: step3.parentConsentSigned,
+        full_name: user.user_metadata?.full_name || nickname,
+        nickname,
+        country,
+        timezone,
+        market,
+        avatar_url: avatar,
+        parent_consent: true,
         role: 'student',
       })
 
-    if (error) {
+    if (upsertError) {
       setError('Hubo un problema guardando tus datos. Intentá de nuevo.')
       setLoading(false)
       return
     }
 
-    router.push('/dashboard')
+    setStep('success')
+    setLoading(false)
+
+    // Redirect to dashboard after 2s
+    setTimeout(() => router.push('/dashboard'), 2000)
   }
 
-  const progressPct = ((step - 1) / 2) * 100
+  // ── Styles ──────────────────────────────────────────────────
+  const fieldLabel: React.CSSProperties = {
+    display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--ink2)',
+    marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em',
+  }
+  const fieldInput: React.CSSProperties = {
+    width: '100%', background: 'var(--bg)', border: '1.5px solid var(--border)',
+    borderRadius: '10px', padding: '11px 14px', fontSize: '14px', color: 'var(--ink)',
+    fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', appearance: 'none' as const,
+  }
+  const btnNext: React.CSSProperties = {
+    flex: 1, background: 'var(--green)', color: 'var(--navy)', border: 'none',
+    borderRadius: '10px', padding: '12px', fontSize: '15px', fontWeight: 800,
+    cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
+  }
+  const btnBack: React.CSSProperties = {
+    flexShrink: 0, background: 'transparent', color: 'var(--ink3)',
+    border: '1.5px solid var(--border)', borderRadius: '10px', padding: '11px 18px',
+    fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+  }
 
   return (
     <div style={{
-      minHeight: '100vh',
-      background: 'var(--bg)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '24px',
+      fontFamily: "-apple-system,'Segoe UI',system-ui,sans-serif",
+      background: 'var(--bg)', minHeight: '100vh',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', padding: '24px',
     }}>
-      <div style={{
-        background: 'var(--white)',
-        borderRadius: 'var(--radius-card)',
-        padding: '40px',
-        width: '100%',
-        maxWidth: '460px',
-        boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
-      }}>
-        {/* Header */}
-        <div style={{ marginBottom: '28px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Paso {step} de 3
-            </span>
-            <span style={{ fontSize: '13px', color: 'var(--ink3)' }}>
-              {step === 1 ? 'Tu perfil' : step === 2 ? 'Tu avatar' : 'Confirmación'}
-            </span>
-          </div>
-          <div style={{ height: '6px', background: 'var(--bg2)', borderRadius: '99px', overflow: 'hidden' }}>
-            <div style={{
-              height: '100%',
-              width: `${progressPct + 33}%`,
-              background: 'var(--green)',
-              borderRadius: '99px',
-              transition: 'width 0.3s ease',
-            }} />
-          </div>
-        </div>
 
-        {/* Step 1 — Perfil */}
+      {/* Progress bar */}
+      <div style={{ width: '100%', maxWidth: '520px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+          {STEP_LABELS.map((lbl, i) => (
+            <span key={lbl} style={{
+              fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+              color: step === i + 1 ? 'var(--green)' : 'var(--ink3)',
+            }}>{lbl}</span>
+          ))}
+        </div>
+        <div style={{ height: '4px', background: 'var(--bg2)', borderRadius: '2px', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${progressPct}%`, background: 'var(--green)', borderRadius: '2px', transition: 'width .4s ease' }} />
+        </div>
+      </div>
+
+      {/* Card */}
+      <div style={{
+        background: 'var(--white)', borderRadius: '20px', border: '1px solid var(--border)',
+        padding: '36px 40px', width: '100%', maxWidth: '520px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
+      }}>
+
+        {/* ── STEP 1: Profile ── */}
         {step === 1 && (
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--ink)', marginBottom: '6px' }}>
-              ¿Cómo te llamamos?
-            </h2>
-            <p style={{ color: 'var(--ink3)', fontSize: '14px', marginBottom: '24px' }}>
-              Completá tu perfil para que tus compañeros y Próspero te conozcan.
-            </p>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '8px' }}>Paso 1 de 3</div>
+            <div style={{ fontWeight: 800, fontSize: '24px', color: 'var(--ink)', marginBottom: '6px' }}>¿Cómo te llamamos? 👋</div>
+            <div style={{ fontSize: '14px', color: 'var(--ink3)', lineHeight: 1.6, marginBottom: '28px' }}>Esta información aparece en tu perfil y en el certificado FGU.</div>
 
-            <div style={{ display: 'grid', gap: '14px' }}>
+            <div style={{ marginBottom: '18px' }}>
+              <label style={fieldLabel}>¿Cómo querés que te llamen?</label>
+              <input type="text" value={nickname} onChange={e => setNickname(e.target.value)}
+                placeholder="Vale, Rodri, Cami..." style={fieldInput} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '18px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--ink3)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  ¿Cómo querés que te llamen?
-                </label>
-                <input
-                  type="text"
-                  value={step1.nickname}
-                  onChange={e => setStep1(p => ({ ...p, nickname: e.target.value }))}
-                  placeholder="Vale, Santi, Lu..."
-                  style={{
-                    width: '100%', padding: '11px 14px', background: 'var(--bg2)',
-                    border: '1.5px solid var(--border)', borderRadius: 'var(--radius-btn)',
-                    fontSize: '15px', color: 'var(--ink)', outline: 'none', boxSizing: 'border-box',
-                  }}
-                />
+                <label style={fieldLabel}>País</label>
+                <select value={country} onChange={e => setCountry(e.target.value)} style={fieldInput}>
+                  <option value="">Seleccioná...</option>
+                  {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+                </select>
               </div>
-
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--ink3)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Zona horaria
-                </label>
-                <select
-                  value={step1.timezone}
-                  onChange={e => setStep1(p => ({ ...p, timezone: e.target.value }))}
-                  style={{
-                    width: '100%', padding: '11px 14px', background: 'var(--bg2)',
-                    border: '1.5px solid var(--border)', borderRadius: 'var(--radius-btn)',
-                    fontSize: '14px', color: 'var(--ink)', outline: 'none', boxSizing: 'border-box',
-                  }}
-                >
-                  <option value="">Seleccioná tu zona horaria</option>
-                  {TIMEZONES.map(tz => (
-                    <option key={tz.value} value={tz.value}>{tz.label}</option>
-                  ))}
+                <label style={fieldLabel}>Zona horaria</label>
+                <select value={timezone} onChange={e => setTimezone(e.target.value)} style={fieldInput}>
+                  {TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
                 </select>
               </div>
             </div>
 
-            <button
-              onClick={() => setStep(2)}
-              disabled={!step1.timezone}
-              style={{
-                width: '100%', marginTop: '24px', padding: '13px',
-                background: !step1.timezone ? 'var(--ink4)' : 'var(--green)',
-                color: 'var(--white)', border: 'none', borderRadius: 'var(--radius-btn)',
-                fontSize: '15px', fontWeight: 700, cursor: !step1.timezone ? 'not-allowed' : 'pointer',
-              }}
-            >
-              Continuar →
-            </button>
-          </div>
-        )}
-
-        {/* Step 2 — Avatar */}
-        {step === 2 && (
-          <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--ink)', marginBottom: '6px' }}>
-              Elegí tu avatar
-            </h2>
-            <p style={{ color: 'var(--ink3)', fontSize: '14px', marginBottom: '24px' }}>
-              Este emoji va a representarte en tu pod y en el ranking.
-            </p>
-
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(6, 1fr)',
-              gap: '10px',
-              marginBottom: '24px',
-            }}>
-              {AVATARS.map(emoji => (
-                <button
-                  key={emoji}
-                  onClick={() => setStep2({ avatarEmoji: emoji })}
-                  style={{
-                    fontSize: '28px',
-                    padding: '10px',
-                    border: step2.avatarEmoji === emoji ? '2.5px solid var(--green)' : '2px solid var(--border)',
-                    borderRadius: '12px',
-                    background: step2.avatarEmoji === emoji ? 'var(--green-l)' : 'var(--bg)',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <button
-                onClick={() => setStep(1)}
-                style={{
-                  padding: '12px', background: 'var(--bg2)', color: 'var(--ink2)',
-                  border: 'none', borderRadius: 'var(--radius-btn)', fontSize: '15px',
-                  fontWeight: 600, cursor: 'pointer',
-                }}
-              >
-                ← Atrás
-              </button>
-              <button
-                onClick={() => setStep(3)}
-                style={{
-                  padding: '12px', background: 'var(--green)', color: 'var(--white)',
-                  border: 'none', borderRadius: 'var(--radius-btn)', fontSize: '15px',
-                  fontWeight: 700, cursor: 'pointer',
-                }}
-              >
+            <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
+              <button onClick={() => setStep(2)} disabled={!nickname || !country}
+                style={{ ...btnNext, background: !nickname || !country ? 'var(--bg2)' : 'var(--green)', color: !nickname || !country ? 'var(--ink4)' : 'var(--navy)', cursor: !nickname || !country ? 'not-allowed' : 'pointer' }}>
                 Continuar →
               </button>
             </div>
           </div>
         )}
 
-        {/* Step 3 — Confirmación */}
-        {step === 3 && (
+        {/* ── STEP 2: Avatar ── */}
+        {step === 2 && (
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--ink)', marginBottom: '6px' }}>
-              Últimos pasos
-            </h2>
-            <p style={{ color: 'var(--ink3)', fontSize: '14px', marginBottom: '24px' }}>
-              Leé y aceptá los compromisos del programa.
-            </p>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '8px' }}>Paso 2 de 3</div>
+            <div style={{ fontWeight: 800, fontSize: '24px', color: 'var(--ink)', marginBottom: '6px' }}>Elegí tu avatar ✨</div>
+            <div style={{ fontSize: '14px', color: 'var(--ink3)', lineHeight: 1.6, marginBottom: '24px' }}>Tu cara visible en el pod y la cohorte.</div>
 
-            <div style={{ display: 'grid', gap: '12px', marginBottom: '24px' }}>
-              {[
-                {
-                  key: 'parentConsentSigned',
-                  label: 'Mi padre/madre/tutor conoce y aprueba mi participación en el programa.',
-                },
-                {
-                  key: 'termsAccepted',
-                  label: 'Acepto los términos y condiciones de Prospera Young AI.',
-                },
-                {
-                  key: 'programRulesAccepted',
-                  label: 'Me comprometo a entregar mis desafíos semanales y participar activamente con mi pod.',
-                },
-              ].map(({ key, label }) => (
-                <label key={key} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: '12px',
-                  padding: '14px', background: 'var(--bg)', borderRadius: 'var(--radius-btn)',
-                  cursor: 'pointer',
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={step3[key as keyof typeof step3]}
-                    onChange={e => setStep3(p => ({ ...p, [key]: e.target.checked }))}
-                    style={{ marginTop: '2px', width: '16px', height: '16px', accentColor: 'var(--green)' }}
-                  />
-                  <span style={{ fontSize: '14px', color: 'var(--ink2)', lineHeight: '1.5' }}>{label}</span>
-                </label>
-              ))}
+            {/* Preview card */}
+            <div style={{
+              background: 'var(--navy)', borderRadius: '14px', padding: '18px 20px',
+              marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '14px',
+            }}>
+              <div style={{
+                width: '48px', height: '48px', borderRadius: '50%', background: 'var(--green)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '22px', flexShrink: 0,
+              }}>{avatar}</div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '16px', color: '#fff' }}>{nickname || 'Tu nombre'}</div>
+                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
+                  {COUNTRIES.find(c => c.code === country)?.label.split(' ')[0] || 'País'} · Pod por asignar
+                </div>
+              </div>
+              <div style={{
+                marginLeft: 'auto', background: 'rgba(0,200,150,0.15)',
+                border: '1px solid rgba(0,200,150,0.3)', color: 'var(--green)',
+                fontSize: '11px', fontWeight: 700, padding: '3px 10px',
+                borderRadius: '20px', whiteSpace: 'nowrap',
+              }}>Cohorte 1</div>
             </div>
 
-            {error && (
-              <p style={{
-                color: 'var(--coral)', fontSize: '13px', marginBottom: '12px',
-                padding: '10px 14px', background: 'var(--coral-l)', borderRadius: 'var(--radius-btn)',
+            {/* Emoji grid */}
+            <div style={{ marginBottom: '24px' }}>
+              <span style={{ ...fieldLabel, display: 'block', marginBottom: '12px' }}>Elegí un emoji como avatar</span>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {EMOJIS.map(e => (
+                  <div key={e} onClick={() => setAvatar(e)} style={{
+                    width: '52px', height: '52px', borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '24px', cursor: 'pointer',
+                    border: `2.5px solid ${avatar === e ? 'var(--green)' : 'transparent'}`,
+                    background: avatar === e ? 'var(--green-l)' : 'var(--bg2)',
+                    transition: 'all .15s',
+                  }}>{e}</div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
+              <button onClick={() => setStep(1)} style={btnBack}>← Atrás</button>
+              <button onClick={() => setStep(3)} style={btnNext}>Continuar →</button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 3: Consent ── */}
+        {step === 3 && (
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '8px' }}>Paso 3 de 3</div>
+            <div style={{ fontWeight: 800, fontSize: '24px', color: 'var(--ink)', marginBottom: '6px' }}>Últimos detalles 📋</div>
+            <div style={{ fontSize: '14px', color: 'var(--ink3)', lineHeight: 1.6, marginBottom: '24px' }}>Leé y aceptá para activar tu cuenta.</div>
+
+            <div style={{
+              background: 'var(--mag-l)', borderRadius: '10px', padding: '12px 14px',
+              marginBottom: '20px', fontSize: '13px', color: 'var(--ink2)',
+              lineHeight: 1.5, borderLeft: '3px solid var(--magenta)',
+            }}>
+              ✦ <strong>Nota para padres:</strong> Les enviamos un email separado para confirmar la participación de su hijo/a. Su cuenta se activa completamente cuando confirmen.
+            </div>
+
+            {[
+              {
+                checked: c1, setChecked: setC1,
+                title: 'Reglas del programa',
+                text: 'Me comprometo a entregar mi trabajo cada semana, a ser honesto/a en mis reflexiones, y a respetar a mis compañeros de pod.',
+              },
+              {
+                checked: c2, setChecked: setC2,
+                title: 'Uso de IA (Próspero)',
+                text: 'Entiendo que el tutor IA es una herramienta de apoyo, no un sustituto de mi propio pensamiento. No puedo usar las respuestas de Próspero como mis propias.',
+              },
+              {
+                checked: c3, setChecked: setC3,
+                title: 'Política de privacidad',
+                text: 'Acepto que mis datos de aprendizaje se usen para mejorar el programa. No se comparten con terceros.',
+              },
+            ].map(({ checked, setChecked, title, text }) => (
+              <div key={title} onClick={() => setChecked(!checked)} style={{
+                display: 'flex', alignItems: 'flex-start', gap: '12px',
+                padding: '14px', borderRadius: '10px', marginBottom: '10px',
+                cursor: 'pointer', border: `1.5px solid ${checked ? 'var(--green)' : 'var(--border)'}`,
+                background: checked ? 'var(--green-l)' : 'var(--bg)',
+                transition: 'all .15s',
               }}>
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '5px', flexShrink: 0, marginTop: '1px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '12px', fontWeight: 800,
+                  background: checked ? 'var(--green)' : 'transparent',
+                  border: `2px solid ${checked ? 'var(--green)' : 'var(--ink4)'}`,
+                  color: 'var(--navy)',
+                  transition: 'all .15s',
+                }}>{checked ? '✓' : ''}</div>
+                <div style={{ fontSize: '13px', color: 'var(--ink2)', lineHeight: 1.5 }}>
+                  <strong style={{ color: 'var(--ink)' }}>{title}</strong> — {text}
+                </div>
+              </div>
+            ))}
+
+            {error && (
+              <p style={{ fontSize: '13px', color: 'var(--coral)', background: 'var(--coral-l)', borderRadius: '8px', padding: '10px 12px', marginTop: '12px' }}>
                 {error}
               </p>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <button
-                onClick={() => setStep(2)}
-                style={{
-                  padding: '12px', background: 'var(--bg2)', color: 'var(--ink2)',
-                  border: 'none', borderRadius: 'var(--radius-btn)', fontSize: '15px',
-                  fontWeight: 600, cursor: 'pointer',
-                }}
-              >
-                ← Atrás
-              </button>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
+              <button onClick={() => setStep(2)} style={btnBack}>← Atrás</button>
               <button
                 onClick={handleFinish}
-                disabled={loading || !step3.termsAccepted || !step3.programRulesAccepted}
+                disabled={loading || !c2 || !c3}
                 style={{
-                  padding: '12px',
-                  background: loading || !step3.termsAccepted || !step3.programRulesAccepted
-                    ? 'var(--ink4)' : 'var(--green)',
-                  color: 'var(--white)', border: 'none', borderRadius: 'var(--radius-btn)',
-                  fontSize: '15px', fontWeight: 700,
-                  cursor: loading || !step3.termsAccepted || !step3.programRulesAccepted
-                    ? 'not-allowed' : 'pointer',
+                  ...btnNext,
+                  background: loading || !c2 || !c3 ? 'var(--bg2)' : 'var(--green)',
+                  color: loading || !c2 || !c3 ? 'var(--ink4)' : 'var(--navy)',
+                  cursor: loading || !c2 || !c3 ? 'not-allowed' : 'pointer',
                 }}
               >
-                {loading ? 'Guardando...' : '¡Empezar!'}
+                {loading ? 'Guardando...' : 'Comenzar el programa 🚀'}
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── SUCCESS ── */}
+        {step === 'success' && (
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <div style={{ fontSize: '52px', marginBottom: '16px' }}>🎉</div>
+            <div style={{ fontWeight: 800, fontSize: '26px', color: 'var(--ink)', marginBottom: '10px' }}>
+              ¡Bienvenida, {nickname}!
+            </div>
+            <div style={{ fontSize: '14px', color: 'var(--ink3)', lineHeight: 1.7, marginBottom: '24px' }}>
+              Tu cuenta está activa. Te asignamos a un pod según tu zona horaria.<br />
+              La semana 1 empieza el próximo lunes — te avisamos por email.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {['📍 Pod por asignar', '🗓 Semana 1 · Lunes', '🏆 Certificado FGU'].map(tag => (
+                <span key={tag} style={{
+                  background: 'var(--bg)', borderRadius: '20px', padding: '6px 14px',
+                  fontSize: '12px', fontWeight: 700, color: 'var(--ink2)',
+                }}>{tag}</span>
+              ))}
             </div>
           </div>
         )}
