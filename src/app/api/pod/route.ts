@@ -156,7 +156,7 @@ export async function GET() {
   const now = Date.now()
 
   const members: PodMemberData[] = rawMembers.map(m => {
-    const u = (m.users as { id: string; full_name: string; nickname: string | null; avatar_url: string | null; country: string | null } | null)
+    const u = (m.users as unknown as { id: string; full_name: string; nickname: string | null; avatar_url: string | null; country: string | null } | null)
 
     const lastActivityAt = lastActivityMap.get(m.user_id) ?? null
     const hoursSinceActivity = lastActivityAt
