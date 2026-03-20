@@ -13,7 +13,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe/checkout'
+import Stripe from 'stripe'
+import { getStripe } from '@/lib/stripe/checkout'
 import { createClient } from '@supabase/supabase-js'
 import type { Database, Market } from '@/types'
 
@@ -136,9 +137,9 @@ export async function POST(req: NextRequest) {
 
   // ── 1. Verify Stripe signature ───────────────────────────────────────────
 
-  let event: ReturnType<typeof stripe.webhooks.constructEvent>
+  let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!)
+    event = getStripe().webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('[webhook] Signature verification failed:', msg)

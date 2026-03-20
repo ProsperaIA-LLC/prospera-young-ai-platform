@@ -12,11 +12,16 @@
 import Stripe from 'stripe'
 import type { Market } from '@/types'
 
-// Singleton — reused across requests in the same process
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-02-25.clover',
-  typescript:  true,
-})
+// Lazy singleton — only instantiated on first use (never at build time)
+let _stripe: Stripe | null = null
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY
+    if (!key) throw new Error('STRIPE_SECRET_KEY is not set')
+    _stripe = new Stripe(key, { apiVersion: '2026-02-25.clover', typescript: true })
+  }
+  return _stripe
+}
 
 export type PriceType = 'full' | 'early'
 
@@ -71,7 +76,7 @@ export async function createCheckoutSession(params: CheckoutParams): Promise<str
   const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   const priceId  = getPriceId(market, priceType)
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     mode:           'payment',
     payment_method_types: ['card'],
     customer_email: studentEmail,
