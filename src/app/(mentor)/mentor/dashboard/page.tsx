@@ -2,359 +2,651 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import type {
+  MentorDashboardData, CohortOverview, StudentProgress,
+  MentorAlertWithStudent, PodSummaryWithPod, DeliverableWithStudent,
+} from '@/types'
 
-interface MentorStudent {
-  enrollment: { id: string; cohort_id: string; user_id: string }
-  user: { id: string; full_name: string; nickname: string | null; avatar_url: string | null; country: string | null } | null
-  cohortName: string
-  lastActivityAt: string | null
-  hoursInactive: number
-  deliverableStatus: string
-  hasSubmitted: boolean
-  alertLevel: 'none' | 'yellow' | 'red'
-  currentWeekNumber: number | null
+// ── API response shape ────────────────────────────────────────────────────────
+
+interface Payload extends MentorDashboardData {
+  mentor: { full_name: string; nickname: string | null; role: string }
 }
 
-interface MentorAlert {
-  id: string
-  studentId: string
-  studentName: string
-  cohortId: string
-  alertType: string
-  severity: 'yellow' | 'red'
-  message: string
-  createdAt: string
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const AVATAR_COLORS = ['var(--green)', 'var(--coral)', 'var(--teal)', 'var(--gold)', 'var(--magenta)', '#163857']
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function avatarColor(name: string, inactive = false) {
+  if (inactive) return 'var(--ink4)'
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
 }
 
-interface MentorDashboardData {
-  mentor: { full_name: string; nickname: string | null; avatar_url: string | null }
-  cohorts: Array<{
-    id: string; name: string; current_week: number; status: string
-    currentWeekData: { week_number: number; title: string; phase: string; due_date: string } | null
-    submissionsThisWeek: number
-    totalStudents: number
-  }>
-  students: MentorStudent[]
-  alerts: MentorAlert[]
+function initials(full: string, nick: string | null) {
+  const s = nick || full
+  const p = s.trim().split(/\s+/)
+  return p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : s.slice(0, 2).toUpperCase()
 }
 
-function AlertBadge({ level }: { level: 'none' | 'yellow' | 'red' }) {
-  if (level === 'none') return null
+function hoursLabel(h: number | null) {
+  if (h === null) return 'Sin actividad'
+  if (h < 1)  return 'Hace menos de 1 hr'
+  if (h < 24) return `hace ${Math.floor(h)} hrs`
+  if (h < 48) return 'ayer'
+  return `hace ${Math.floor(h / 24)} días 🚨`
+}
+
+function fmtSubmitted(iso: string | null) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  const h = Math.floor((Date.now() - d.getTime()) / 36e5)
+  if (h < 1)  return 'hace menos de 1 hr'
+  if (h < 24) return `hace ${h} hr${h > 1 ? 's' : ''}`
+  if (h < 48) return 'ayer'
+  return d.toLocaleDateString('es', { day: 'numeric', month: 'short' })
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function StatBox({ n, label, color }: { n: number | string; label: string; color: string }) {
   return (
-    <span style={{
-      display: 'inline-block',
-      width: '8px', height: '8px',
-      borderRadius: '50%',
-      background: level === 'red' ? 'var(--coral)' : 'var(--gold)',
-      flexShrink: 0,
-    }} />
+    <div style={{
+      background: 'var(--white)', borderRadius: 14,
+      border: '1px solid var(--border)', padding: '14px 16px',
+    }}>
+      <div style={{ fontWeight: 800, fontSize: 26, lineHeight: 1, marginBottom: 4, color }}>{n}</div>
+      <div style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.3 }}>{label}</div>
+    </div>
   )
 }
 
-function StatusChip({ status }: { status: string }) {
-  const map: Record<string, { bg: string; color: string; label: string }> = {
-    not_started: { bg: '#F3F4F6', color: '#6B7280', label: 'Pendiente' },
-    draft:       { bg: '#FEF3C7', color: '#92400E', label: 'Borrador' },
-    submitted:   { bg: '#D1FAE5', color: '#065F46', label: 'Entregado' },
-    reviewed:    { bg: '#CCFBF1', color: '#0F766E', label: 'Revisado' },
-  }
-  const s = map[status] || map.not_started
+function DelivBadge({ submitted }: { submitted: boolean }) {
   return (
     <span style={{
-      background: s.bg, color: s.color,
-      fontSize: '11px', fontWeight: 700,
-      padding: '3px 8px', borderRadius: '99px',
-    }}>{s.label}</span>
+      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+      textTransform: 'uppercase', letterSpacing: '0.04em',
+      background: submitted ? 'var(--green-l)' : 'var(--coral-l)',
+      color: submitted ? 'var(--green-d)' : 'var(--coral)',
+    }}>
+      {submitted ? 'Entregado' : 'Pendiente'}
+    </span>
   )
 }
+
+function HoursBar({ hours }: { hours: number | null }) {
+  const MAX_HOURS = 72
+  const pct = hours === null ? 0 : Math.min(100, (hours / MAX_HOURS) * 100)
+  const barColor = hours === null ? 'var(--ink4)'
+    : hours < 24 ? 'var(--green)'
+    : hours < 48 ? 'var(--gold)'
+    : 'var(--coral)'
+  return (
+    <div style={{ height: 4, borderRadius: 2, background: 'var(--bg2)', marginTop: 4, overflow: 'hidden' }}>
+      <div style={{ height: '100%', borderRadius: 2, width: `${pct}%`, background: barColor }} />
+    </div>
+  )
+}
+
+// ── Loading skeleton ──────────────────────────────────────────────────────────
+
+function Skeleton() {
+  return (
+    <div style={{ padding: '22px 24px' }}>
+      <style>{`
+        @keyframes sk { 0%{background-position:-600px 0} 100%{background-position:600px 0} }
+        .sk { background:linear-gradient(90deg,var(--bg2) 25%,var(--bg) 50%,var(--bg2) 75%);
+              background-size:1200px 100%;animation:sk 1.4s infinite;border-radius:10px; }
+      `}</style>
+      {/* stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 10, marginBottom: 16 }}>
+        {[1,2,3,4,5].map(i => <div key={i} className="sk" style={{ height: 72 }} />)}
+      </div>
+      <div className="sk" style={{ height: 64, borderRadius: 14, marginBottom: 16 }} />
+      <div className="sk" style={{ height: 300, borderRadius: 16, marginBottom: 16 }} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
+        {[1,2,3].map(i => <div key={i} className="sk" style={{ height: 160, borderRadius: 14 }} />)}
+      </div>
+      <div className="sk" style={{ height: 160, borderRadius: 16 }} />
+    </div>
+  )
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
 
 export default function MentorDashboardPage() {
   const router = useRouter()
-  const [data, setData] = useState<MentorDashboardData | null>(null)
+  const [data, setData]       = useState<Payload | null>(null)
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'red' | 'yellow'>('all')
-  const [selectedCohort, setSelectedCohort] = useState<string>('all')
+  const [filter, setFilter]   = useState<'all' | 'yellow' | 'red'>('all')
 
   useEffect(() => {
     fetch('/api/mentor/dashboard')
-      .then(r => r.json())
-      .then(setData)
+      .then(async r => {
+        if (r.status === 401 || r.status === 403) { router.replace('/login'); return }
+        setData(await r.json())
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [])
+  }, [router])
 
-  if (loading) {
+  if (loading) return <Skeleton />
+  if (!data || !data.cohort) {
     return (
-      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{
-          width: '36px', height: '36px', borderRadius: '50%',
-          border: '3px solid var(--border)', borderTopColor: 'var(--magenta)',
-          animation: 'spin 0.8s linear infinite',
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--ink3)' }}>
+        No hay ninguna cohorte activa en este momento.
       </div>
     )
   }
 
-  if (!data) return null
+  const {
+    mentor, cohort, overview, students,
+    redAlerts, yellowAlerts, podSummaries, recentDeliverables,
+  } = data
 
-  const { cohorts, students, alerts } = data
+  // ── Derived values ──────────────────────────────────────────────────────────
 
-  // Filter students
+  // Alert-level lookup per student
+  const alertLevel = new Map<string, 'red' | 'yellow'>()
+  for (const a of redAlerts)    alertLevel.set(a.alert.student_id, 'red')
+  for (const a of yellowAlerts) if (!alertLevel.has(a.alert.student_id)) alertLevel.set(a.alert.student_id, 'yellow')
+
+  // Who submitted this week (appear in recentDeliverables or total deliverables >= current_week)
+  const submittedThisWeek = new Set(recentDeliverables.map(d => d.student.id))
+  const submittedCount = students.filter(s =>
+    submittedThisWeek.has(s.user_id) || s.deliverables_submitted >= cohort.current_week
+  ).length
+
+  // Pod count
+  const podIds = new Set(students.map(s => s.pod_id).filter(Boolean))
+
+  // Completion rate
+  const completionRate = students.length > 0
+    ? Math.round(submittedCount / students.length * 100)
+    : 0
+
+  // Alert students list for banner
+  const alertStudents = [
+    ...redAlerts.map(a => ({ ...a, sev: 'red' as const })),
+    ...yellowAlerts.map(a => ({ ...a, sev: 'yellow' as const })),
+  ].slice(0, 4)
+
+  const totalAlerts = redAlerts.length + yellowAlerts.length
+
+  // Filtered students list
   const filtered = students.filter(s => {
-    if (selectedCohort !== 'all' && s.enrollment.cohort_id !== selectedCohort) return false
-    if (filter === 'red') return s.alertLevel === 'red'
-    if (filter === 'yellow') return s.alertLevel === 'yellow' || s.alertLevel === 'red'
+    const lv = alertLevel.get(s.user_id)
+    if (filter === 'red')    return lv === 'red'
+    if (filter === 'yellow') return lv === 'red' || lv === 'yellow'
     return true
   })
 
-  const redCount = students.filter(s => s.alertLevel === 'red').length
-  const yellowCount = students.filter(s => s.alertLevel === 'yellow').length
-  const submittedCount = students.filter(s => s.hasSubmitted).length
+  // Pod member mini faces from students
+  function podMembers(podId: string) {
+    return students.filter(s => s.pod_id === podId).slice(0, 5)
+  }
+
+  // Pod has alert?
+  function podHasAlert(podId: string) {
+    return students.some(s => s.pod_id === podId && alertLevel.has(s.user_id))
+  }
+
+  // Day label for topbar
+  const DAY_ES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
+  const todayLabel = DAY_ES[new Date().getDay()]
+
+  const mentorLabel = mentor?.nickname || mentor?.full_name?.split(' ').map(p => p[0]).join('') || 'M'
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '28px 24px' }}>
-
-      {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontWeight: 800, fontSize: '22px', margin: '0 0 4px' }}>Panel del Mentor</h1>
-        <p style={{ color: '#6B7280', fontSize: '14px', margin: 0 }}>
-          {cohorts.length} cohorte{cohorts.length !== 1 ? 's' : ''} activa{cohorts.length !== 1 ? 's' : ''}
-        </p>
-      </div>
-
-      {/* Cohort cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px', marginBottom: '24px' }}>
-        {cohorts.map(cohort => (
-          <div
-            key={cohort.id}
-            style={{
-              background: 'white',
-              border: `2px solid ${selectedCohort === cohort.id ? 'var(--magenta)' : 'var(--border)'}`,
-              borderRadius: 'var(--radius-lg)',
-              padding: '18px 20px',
-              cursor: 'pointer',
-            }}
-            onClick={() => setSelectedCohort(selectedCohort === cohort.id ? 'all' : cohort.id)}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-              <div>
-                <p style={{ fontWeight: 700, fontSize: '14px', margin: '0 0 2px' }}>{cohort.name}</p>
-                {cohort.currentWeekData && (
-                  <p style={{ color: '#6B7280', fontSize: '12px', margin: 0 }}>
-                    Semana {cohort.currentWeekData.week_number} — {cohort.currentWeekData.title}
-                  </p>
-                )}
-              </div>
-              <span style={{
-                background: 'var(--navy)',
-                color: 'white',
-                fontSize: '11px',
-                fontWeight: 700,
-                padding: '3px 10px',
-                borderRadius: '99px',
-              }}>
-                S{cohort.current_week}
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <div>
-                <p style={{ fontWeight: 800, fontSize: '22px', margin: 0, color: 'var(--teal)' }}>{cohort.submissionsThisWeek}</p>
-                <p style={{ fontSize: '11px', color: '#6B7280', margin: 0 }}>Entregaron</p>
-              </div>
-              <div>
-                <p style={{ fontWeight: 800, fontSize: '22px', margin: 0 }}>{cohort.totalStudents}</p>
-                <p style={{ fontSize: '11px', color: '#6B7280', margin: 0 }}>Estudiantes</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Alert banner */}
-      {(redCount > 0 || yellowCount > 0) && (
-        <div style={{
-          background: '#FFF1F0',
-          border: '1px solid rgba(255,92,53,0.25)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '16px 20px',
-          marginBottom: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '14px',
-          flexWrap: 'wrap',
-        }}>
+    <>
+      {/* ── Topbar ─────────────────────────────────────────────────────────── */}
+      <div style={{
+        background: 'rgba(245,244,240,0.97)',
+        borderBottom: '1px solid var(--border)',
+        padding: '11px 24px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        position: 'sticky', top: 0, zIndex: 50,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
-            width: '36px', height: '36px', background: 'var(--coral)',
-            borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '18px', flexShrink: 0,
-          }}>🚨</div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontWeight: 800, fontSize: '14px', margin: '0 0 2px' }}>
-              {redCount > 0 ? `${redCount} alerta${redCount !== 1 ? 's' : ''} roja${redCount !== 1 ? 's' : ''}` : ''}
-              {redCount > 0 && yellowCount > 0 ? ' · ' : ''}
-              {yellowCount > 0 ? `${yellowCount} amarilla${yellowCount !== 1 ? 's' : ''}` : ''}
-            </p>
-            <p style={{ fontSize: '12px', color: '#6B7280', margin: 0 }}>Estudiantes que necesitan atención</p>
+            background: 'var(--navy)', color: 'rgba(255,255,255,0.65)',
+            fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 20,
+          }}>
+            Cohorte <b style={{ color: 'var(--magenta)' }}>1</b> · Activa
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {alerts.filter(a => a.severity === 'red').slice(0, 3).map(a => (
+          <div style={{ fontSize: 12, color: 'var(--ink3)' }}>
+            📍 Semana {cohort.current_week} de 6 · {todayLabel}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {totalAlerts > 0 && (
+            <button
+              onClick={() => setFilter(f => f === 'all' ? 'red' : 'all')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--coral-l)', border: '1px solid rgba(255,92,53,0.25)',
+                padding: '5px 12px', borderRadius: 20,
+                fontSize: 12, fontWeight: 700, color: 'var(--coral)', cursor: 'pointer',
+              }}
+            >
+              ⚠ {totalAlerts} alerta{totalAlerts !== 1 ? 's' : ''} activa{totalAlerts !== 1 ? 's' : ''}
+            </button>
+          )}
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%',
+            background: 'var(--magenta)', color: '#fff',
+            fontWeight: 800, fontSize: 12,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {mentorLabel.slice(0, 2).toUpperCase()}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Content ─────────────────────────────────────────────────────────── */}
+      <div style={{ padding: '22px 24px 40px' }}>
+
+        {/* Stats row — 5 columns */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 10, marginBottom: 16 }}>
+          <StatBox n={overview.active_students}                          label="Estudiantes activos"           color="var(--green)" />
+          <StatBox n={submittedCount}                                    label={`Entregaron semana ${cohort.current_week}`} color="var(--gold)" />
+          <StatBox n={totalAlerts}                                       label="Alertas sin resolver"          color="var(--coral)" />
+          <StatBox n={podIds.size}                                       label="Pods activos"                  color="var(--teal)" />
+          <StatBox n={`${completionRate}%`}                              label="Tasa de completación"          color="var(--magenta)" />
+        </div>
+
+        {/* Alerts banner */}
+        {totalAlerts > 0 && (
+          <div style={{
+            background: 'var(--coral-l)', border: '1px solid rgba(255,92,53,0.2)',
+            borderRadius: 14, padding: '14px 18px', marginBottom: 16,
+            display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+          }}>
+            <div style={{
+              width: 36, height: 36, background: 'var(--coral)', borderRadius: 9,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 17, flexShrink: 0,
+            }}>
+              🚨
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--ink)', marginBottom: 2 }}>
+                {totalAlerts} estudiante{totalAlerts !== 1 ? 's' : ''} necesita{totalAlerts === 1 ? '' : 'n'} atención hoy
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink3)' }}>
+                Sin actividad por más de 48 horas — el buddy ya fue notificado automáticamente
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', flexWrap: 'wrap' }}>
+              {alertStudents.map(a => (
+                <button
+                  key={a.alert.id}
+                  onClick={() => router.push(`/mentor/students/${a.alert.student_id}`)}
+                  style={{
+                    background: 'var(--white)', border: '1.5px solid var(--coral)',
+                    borderRadius: 20, padding: '4px 12px',
+                    fontSize: 12, fontWeight: 700, color: 'var(--coral)',
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}
+                >
+                  {a.student.nickname || a.student.full_name.split(' ')[0]}
+                  {a.student.country ? ` · ${a.student.country}` : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Students table ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 20 }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>Estado de estudiantes</div>
+            <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 1 }}>
+              Semana {cohort.current_week} · Ordenados por actividad reciente
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {(['all', 'yellow', 'red'] as const).map(f => (
               <button
-                key={a.id}
-                onClick={() => router.push(`/mentor/students/${a.studentId}`)}
+                key={f}
+                onClick={() => setFilter(f)}
                 style={{
-                  background: 'white',
-                  border: '1.5px solid var(--coral)',
-                  borderRadius: '99px',
-                  padding: '4px 12px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  color: 'var(--coral)',
+                  padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                  border: `1.5px solid ${filter === f ? 'var(--magenta)' : 'var(--border)'}`,
+                  background: filter === f ? 'var(--magenta)' : 'var(--white)',
+                  color: filter === f ? '#fff' : 'var(--ink3)',
                   cursor: 'pointer',
                 }}
               >
-                {a.studentName}
+                {f === 'all' ? 'Todos' : f === 'yellow' ? '🟡 Alerta' : '🔴 Urgente'}
               </button>
             ))}
           </div>
         </div>
-      )}
 
-      {/* Stats summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '20px' }}>
-        {[
-          { n: students.length, label: 'Estudiantes activos', color: 'var(--ink)' },
-          { n: submittedCount, label: 'Entregaron esta semana', color: 'var(--teal)' },
-          { n: redCount, label: 'Alertas rojas', color: 'var(--coral)' },
-          { n: yellowCount, label: 'Alertas amarillas', color: 'var(--gold)' },
-        ].map(({ n, label, color }) => (
-          <div key={label} style={{
-            background: 'white', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-lg)', padding: '14px 16px',
-          }}>
-            <p style={{ fontWeight: 800, fontSize: '28px', margin: '0 0 4px', color }}>{n}</p>
-            <p style={{ fontSize: '11px', color: '#6B7280', margin: 0, lineHeight: 1.3 }}>{label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Filter row */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{ fontSize: '13px', fontWeight: 600, color: '#6B7280' }}>Filtrar:</span>
-        {(['all', 'yellow', 'red'] as const).map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '99px',
-              border: `1.5px solid ${filter === f ? 'var(--magenta)' : 'var(--border)'}`,
-              background: filter === f ? 'var(--magenta)' : 'white',
-              color: filter === f ? 'white' : 'var(--ink)',
-              fontWeight: 600,
-              fontSize: '12px',
-              cursor: 'pointer',
-            }}
-          >
-            {f === 'all' ? 'Todos' : f === 'yellow' ? '🟡 Amarilla+' : '🔴 Roja'}
-          </button>
-        ))}
-        <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#6B7280' }}>
-          {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}
-        </span>
-      </div>
-
-      {/* Students table */}
-      <div style={{
-        background: 'white',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)',
-        overflow: 'hidden',
-      }}>
-        {/* Table header */}
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: '2fr 1fr 1fr 1fr 80px',
-          padding: '10px 16px',
-          background: '#F9FAFB',
-          borderBottom: '1px solid var(--border)',
+          background: 'var(--white)', borderRadius: 16,
+          border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 16,
         }}>
-          {['Estudiante', 'Cohorte', 'Entregable', 'Última actividad', ''].map(h => (
-            <span key={h} style={{ fontSize: '11px', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {h}
-            </span>
-          ))}
+          {/* Table header */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px',
+            padding: '10px 16px',
+            background: 'var(--bg)', borderBottom: '1px solid var(--border)',
+          }}>
+            {['Estudiante', 'Entregable', 'Última actividad', 'Reflexión', 'Pod', ''].map(h => (
+              <div key={h} style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {h}
+              </div>
+            ))}
+          </div>
+
+          {filtered.length === 0 && (
+            <div style={{ padding: '28px', textAlign: 'center', color: 'var(--ink3)', fontSize: 13 }}>
+              No hay estudiantes con este filtro.
+            </div>
+          )}
+
+          {filtered.map((s: StudentProgress, idx) => {
+            const lv = alertLevel.get(s.user_id)
+            const hours = s.hours_since_activity
+            const isRed    = lv === 'red'    || (hours !== null && hours >= 48)
+            const isYellow = !isRed && (lv === 'yellow' || (hours !== null && hours >= 24))
+            const hasSubmitted = submittedThisWeek.has(s.user_id) || s.deliverables_submitted >= cohort.current_week
+            const hasReflection = s.reflections_submitted > 0
+
+            return (
+              <div
+                key={s.user_id}
+                onClick={() => router.push(`/mentor/students/${s.user_id}`)}
+                style={{
+                  display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px',
+                  padding: '12px 16px', alignItems: 'center',
+                  borderBottom: idx < filtered.length - 1 ? '1px solid var(--border)' : 'none',
+                  cursor: 'pointer', transition: 'background .12s',
+                  borderLeft: isRed ? '3px solid var(--coral)' : isYellow ? '3px solid var(--gold)' : '3px solid transparent',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--bg)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = '' }}
+              >
+                {/* Student info */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                    background: avatarColor(s.full_name, isRed && !lv),
+                    color: isRed && !lv ? 'var(--ink2)' : '#fff',
+                    fontWeight: 800, fontSize: 13,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {initials(s.full_name, s.nickname)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                      {s.full_name}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--ink3)' }}>
+                      {[s.country, s.pod_name].filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Deliverable */}
+                <div><DelivBadge submitted={hasSubmitted} /></div>
+
+                {/* Last activity + bar */}
+                <div>
+                  <div style={{
+                    fontSize: 12,
+                    color: isRed ? 'var(--coral)' : 'var(--ink2)',
+                    fontWeight: isRed ? 700 : 400,
+                  }}>
+                    {hoursLabel(hours)}
+                  </div>
+                  <HoursBar hours={hours} />
+                </div>
+
+                {/* Reflection */}
+                <div>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                    textTransform: 'uppercase', letterSpacing: '0.04em',
+                    background: hasReflection ? 'var(--teal-l)' : 'var(--gold-l)',
+                    color: hasReflection ? 'var(--teal)' : '#b07a10',
+                  }}>
+                    {hasReflection ? 'Hecha' : 'Dom'}
+                  </span>
+                </div>
+
+                {/* Pod */}
+                <div style={{ fontSize: 12, color: 'var(--ink2)' }}>
+                  {s.pod_name ?? '—'}
+                  {s.is_pod_leader_this_week && (
+                    <span style={{ color: 'var(--gold)', marginLeft: 3 }}>✦</span>
+                  )}
+                </div>
+
+                {/* Action button */}
+                <div>
+                  <button
+                    onClick={e => { e.stopPropagation(); router.push(`/mentor/students/${s.user_id}`) }}
+                    style={{
+                      fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 8,
+                      border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                      background: isRed || isYellow ? 'var(--coral-l)' : 'var(--teal-l)',
+                      color: isRed || isYellow ? 'var(--coral)' : 'var(--teal)',
+                      transition: 'all .15s',
+                    }}
+                  >
+                    {isRed || isYellow ? 'Contactar' : '+ Nota'}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
         </div>
 
-        {filtered.length === 0 && (
-          <div style={{ padding: '32px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>
-            No hay estudiantes con este filtro
+        {/* ── Pod summaries grid ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 20 }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>
+              Resúmenes de pods · Semana {cohort.current_week}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 1 }}>
+              Enviados por los Pod Leaders el viernes
+            </div>
+          </div>
+          <button
+            onClick={() => router.push('/mentor/pods')}
+            style={{ fontSize: 12, color: 'var(--teal)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            Ver todos →
+          </button>
+        </div>
+
+        {podSummaries.length === 0 ? (
+          <div style={{
+            background: 'var(--white)', borderRadius: 14,
+            border: '1px solid var(--border)', padding: '20px 18px',
+            fontSize: 13, color: 'var(--ink3)', marginBottom: 16,
+          }}>
+            Ningún Pod Leader ha enviado el resumen esta semana todavía.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
+            {podSummaries.map((item: PodSummaryWithPod) => {
+              const members = podMembers(item.pod.id)
+              const hasAlert = podHasAlert(item.pod.id)
+
+              return (
+                <div
+                  key={item.summary.id}
+                  style={{
+                    background: 'var(--white)', borderRadius: 14,
+                    border: `1px solid ${hasAlert ? 'var(--coral)' : 'var(--border)'}`,
+                    padding: 16,
+                  }}
+                >
+                  {/* Pod card header */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--ink)' }}>
+                        {item.pod.name}
+                      </div>
+                      {item.pod.timezone_region && (
+                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 1 }}>
+                          {item.pod.timezone_region}
+                        </div>
+                      )}
+                    </div>
+                    {hasAlert && (
+                      <div style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--coral)', flexShrink: 0, marginTop: 3 }} />
+                    )}
+                  </div>
+
+                  {/* Summary text */}
+                  <div style={{
+                    background: 'var(--bg)', borderRadius: 8, padding: '10px 12px',
+                    marginBottom: 10,
+                  }}>
+                    <div style={{
+                      fontSize: 10, fontWeight: 700, color: 'var(--ink3)',
+                      textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4,
+                    }}>
+                      Resumen del Pod Leader ({item.podLeader.nickname || item.podLeader.full_name.split(' ')[0]})
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.6, fontStyle: 'italic' }}>
+                      "{item.summary.summary_text}"
+                    </div>
+                  </div>
+
+                  {/* Mini member faces */}
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {members.map(m => {
+                      const mAlert = alertLevel.get(m.user_id)
+                      return (
+                        <div
+                          key={m.user_id}
+                          title={m.nickname || m.full_name.split(' ')[0]}
+                          style={{
+                            width: 28, height: 28, borderRadius: '50%',
+                            background: avatarColor(m.full_name, mAlert === 'red'),
+                            color: mAlert === 'red' ? 'var(--ink2)' : '#fff',
+                            fontSize: 10, fontWeight: 800,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            position: 'relative', flexShrink: 0,
+                          }}
+                        >
+                          {initials(m.full_name, m.nickname)}
+                          {mAlert && (
+                            <div style={{
+                              position: 'absolute', top: -1, right: -1,
+                              width: 8, height: 8, borderRadius: '50%',
+                              background: mAlert === 'red' ? 'var(--coral)' : 'var(--gold)',
+                              border: '1.5px solid var(--white)',
+                            }} />
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
 
-        {filtered.map(s => (
-          <div
-            key={s.enrollment.id}
-            onClick={() => router.push(`/mentor/students/${s.enrollment.user_id}`)}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '2fr 1fr 1fr 1fr 80px',
-              padding: '12px 16px',
-              borderBottom: '1px solid var(--border)',
-              cursor: 'pointer',
-              alignItems: 'center',
-              borderLeft: s.alertLevel === 'red' ? '3px solid var(--coral)' : s.alertLevel === 'yellow' ? '3px solid var(--gold)' : '3px solid transparent',
-              transition: 'background 0.1s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#F9FAFB')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'white')}
-          >
-            {/* Student info */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <AlertBadge level={s.alertLevel} />
-              <div
-                style={{
-                  width: '34px', height: '34px', borderRadius: '50%',
-                  background: 'var(--teal)', color: 'white', fontWeight: 800,
-                  fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                {s.user?.avatar_url || s.user?.nickname?.slice(0, 2).toUpperCase() || '??'}
-              </div>
-              <div>
-                <p style={{ fontWeight: 600, fontSize: '13px', margin: 0 }}>
-                  {s.user?.nickname || s.user?.full_name?.split(' ')[0] || 'Estudiante'}
-                </p>
-                {s.user?.country && <p style={{ fontSize: '11px', color: '#9CA3AF', margin: 0 }}>{s.user.country}</p>}
-              </div>
-            </div>
-
-            {/* Cohort */}
-            <span style={{ fontSize: '12px', color: '#6B7280' }}>{s.cohortName}</span>
-
-            {/* Deliverable */}
-            <StatusChip status={s.deliverableStatus} />
-
-            {/* Last activity */}
-            <span style={{ fontSize: '12px', color: s.hoursInactive >= 48 ? 'var(--coral)' : '#6B7280' }}>
-              {s.lastActivityAt
-                ? s.hoursInactive < 1
-                  ? 'Ahora'
-                  : s.hoursInactive < 24
-                  ? `Hace ${s.hoursInactive}h`
-                  : s.hoursInactive < 48
-                  ? 'Ayer'
-                  : `Hace ${Math.floor(s.hoursInactive / 24)} días`
-                : 'Nunca'}
-            </span>
-
-            {/* Action */}
-            <span style={{ fontSize: '12px', color: 'var(--teal)', fontWeight: 600 }}>Ver →</span>
+        {/* ── Recent deliverables ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 20 }}>
+          <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>
+            Entregables recientes para revisar
           </div>
-        ))}
-      </div>
+          <button
+            onClick={() => router.push('/mentor/students')}
+            style={{ fontSize: 12, color: 'var(--teal)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            Ver todos →
+          </button>
+        </div>
 
-    </div>
+        {recentDeliverables.length === 0 ? (
+          <div style={{
+            background: 'var(--white)', borderRadius: 16,
+            border: '1px solid var(--border)', padding: '20px 18px',
+            fontSize: 13, color: 'var(--ink3)',
+          }}>
+            No hay entregables pendientes de revisión esta semana. 🎉
+          </div>
+        ) : (
+          <div style={{
+            background: 'var(--white)', borderRadius: 16,
+            border: '1px solid var(--border)', overflow: 'hidden',
+          }}>
+            {recentDeliverables.map((item: DeliverableWithStudent, idx) => (
+              <div
+                key={item.deliverable.id}
+                onClick={() => router.push(`/mentor/students/${item.student.id}`)}
+                style={{
+                  display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 120px',
+                  gap: 12, padding: '12px 16px', alignItems: 'center',
+                  borderBottom: idx < recentDeliverables.length - 1 ? '1px solid var(--border)' : 'none',
+                  cursor: 'pointer', transition: 'background .12s',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--bg)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = '' }}
+              >
+                {/* Student + preview */}
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                    {item.student.full_name}
+                    {item.student.country ? ` · ${item.student.country}` : ''}
+                  </div>
+                  {item.deliverable.content && (
+                    <div style={{
+                      fontSize: 12, color: 'var(--ink3)', marginTop: 2,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      maxWidth: 300,
+                    }}>
+                      {item.deliverable.content}
+                    </div>
+                  )}
+                </div>
+
+                {/* Week */}
+                <div style={{ fontSize: 12, color: 'var(--ink3)' }}>
+                  Semana {item.week.week_number}
+                  {item.week.title && (
+                    <div style={{ fontSize: 11, color: 'var(--ink4)', marginTop: 1 }}>{item.week.title}</div>
+                  )}
+                </div>
+
+                {/* Time */}
+                <div style={{ fontSize: 11, color: 'var(--ink3)' }}>
+                  {fmtSubmitted(item.deliverable.submitted_at)}
+                </div>
+
+                {/* Action */}
+                <div>
+                  <button
+                    onClick={e => { e.stopPropagation(); router.push(`/mentor/students/${item.student.id}`) }}
+                    style={{
+                      background: 'var(--navy)', color: '#fff',
+                      border: 'none', borderRadius: 8, padding: '6px 14px',
+                      fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      fontFamily: 'inherit', transition: 'background .15s',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--navy2)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--navy)' }}
+                  >
+                    Revisar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+      </div>
+    </>
   )
 }

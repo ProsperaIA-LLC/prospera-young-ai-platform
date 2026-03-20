@@ -3,6 +3,13 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { DashboardResponse } from '@/types'
+import {
+  generateCertificate,
+  type CertificateStudent,
+  type CertificateCohort,
+  type CompetencyScores,
+  type EligibilityResult,
+} from '@/lib/utils/certificate'
 
 const WEEK_PHASES = [
   { week: 1, phase: 'Despertar', title: 'El problema que te duele', icon: '🔍' },
@@ -13,30 +20,64 @@ const WEEK_PHASES = [
   { week: 6, phase: 'Lanzar', title: 'Demo Day: tu primer hito público', icon: '🚀' },
 ]
 
+interface CertData {
+  eligible:   boolean
+  scored:     boolean
+  scores:     CompetencyScores | null
+  eligibility: EligibilityResult | null
+  student:    CertificateStudent | null
+  cohort:     CertificateCohort | null
+}
+
 export default function ProjectPage() {
   const [deliverables, setDeliverables] = useState<any[]>([])
-  const [currentWeek, setCurrentWeek] = useState<number>(1)
-  const [loading, setLoading] = useState(true)
+  const [currentWeek, setCurrentWeek]   = useState<number>(1)
+  const [loading, setLoading]           = useState(true)
+  const [certData, setCertData]         = useState<CertData | null>(null)
+  const [generating, setGenerating]     = useState(false)
 
   useEffect(() => {
     async function load() {
-      // Get current week from dashboard
-      const res = await fetch('/api/student/dashboard')
-      const json: DashboardResponse = await res.json()
-      setCurrentWeek(json.data.cohort.current_week)
-
-      // Get all deliverables for this user
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data } = await supabase
-        .from('deliverables')
-        .select('*, weeks(week_number, title, phase, deliverable_description, success_signal)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true })
+      // Parallel: dashboard (week info) + deliverables + certificate eligibility
+      const [dashRes, delivRes, certRes] = await Promise.all([
+        fetch('/api/student/dashboard'),
+        supabase
+          .from('deliverables')
+          .select('*, weeks(week_number, title, phase, deliverable_description, success_signal)')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true }),
+        fetch('/api/certificate'),
+      ])
 
-      setDeliverables(data || [])
+      const dashJson: DashboardResponse = await dashRes.json()
+      setCurrentWeek(dashJson.data.cohort.current_week)
+      setDeliverables(delivRes.data || [])
+
+      if (certRes.ok) {
+        const c = await certRes.json()
+        setCertData({
+          eligible:    c.eligible ?? false,
+          scored:      c.scored   ?? false,
+          scores:      c.scores   ?? null,
+          eligibility: c.eligibility ?? null,
+          student: {
+            fullName: dashJson.data.user.full_name,
+            country:  dashJson.data.user.country,
+            nickname: dashJson.data.user.nickname,
+          },
+          cohort: c.cohort ? {
+            name:      c.cohort.name,
+            market:    c.cohort.market,
+            startDate: c.cohort.startDate,
+            endDate:   c.cohort.endDate,
+          } : null,
+        })
+      }
+
       setLoading(false)
     }
     load()
@@ -171,22 +212,167 @@ export default function ProjectPage() {
         })}
       </div>
 
-      {/* Certificate preview if complete */}
-      {submittedCount === 6 && (
-        <div style={{
-          marginTop: '24px',
-          background: 'var(--navy)', color: 'white',
-          borderRadius: 'var(--radius-lg)', padding: '28px',
-          textAlign: 'center',
-        }}>
-          <div style={{ fontSize: '40px', marginBottom: '12px' }}>🏆</div>
-          <h2 style={{ fontWeight: 800, fontSize: '20px', margin: '0 0 8px' }}>¡Completaste el programa!</h2>
-          <p style={{ opacity: 0.7, fontSize: '14px', margin: '0 0 16px' }}>
-            Tu certificado FGU será generado una vez que tu mentor valide todos tus entregables.
+      {/* Certificate section */}
+      {certData && <CertificateSection certData={certData} generating={generating} onDownload={async () => {
+        if (!certData?.eligible || !certData.student || !certData.cohort || !certData.scores) return
+        setGenerating(true)
+        try {
+          await generateCertificate(certData.student, certData.cohort, certData.scores)
+        } finally {
+          setGenerating(false)
+        }
+      }} />}
+
+    </div>
+  )
+}
+
+// ── Certificate section component ─────────────────────────────────────────────
+
+const COMP_LABELS: Record<keyof CompetencyScores, string> = {
+  validation:    'Validación',
+  creation:      'Creación',
+  communication: 'Comunicación',
+  growth:        'Crecimiento',
+}
+
+function CertificateSection({ certData, generating, onDownload }: {
+  certData:   CertData
+  generating: boolean
+  onDownload: () => void
+}) {
+  const { eligible, scored, scores, eligibility } = certData
+
+  // Not scored yet by mentor — neutral state
+  if (!scored) {
+    return (
+      <div style={{
+        marginTop: '24px',
+        background: 'var(--navy)', color: 'white',
+        borderRadius: '16px', padding: '28px', textAlign: 'center',
+      }}>
+        <div style={{ fontSize: '36px', marginBottom: '12px' }}>🏆</div>
+        <h2 style={{ fontWeight: 800, fontSize: '18px', margin: '0 0 8px' }}>Certificado FGU</h2>
+        <p style={{ opacity: 0.7, fontSize: '13px', margin: 0, lineHeight: 1.6 }}>
+          Tu mentor evaluará tus competencias al finalizar el programa.<br />
+          Una vez calificado, aparecerá aquí tu certificado para descargar.
+        </p>
+      </div>
+    )
+  }
+
+  // Scored — show score breakdown + download or pending conditions
+  return (
+    <div style={{
+      marginTop: '24px',
+      background: eligible ? 'var(--navy)' : 'white',
+      border: eligible ? 'none' : '1px solid var(--border)',
+      borderRadius: '16px', padding: '28px',
+      color: eligible ? 'white' : 'var(--ink)',
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+        <div style={{ fontSize: '32px' }}>{eligible ? '🏆' : '📋'}</div>
+        <div>
+          <h2 style={{ fontWeight: 800, fontSize: '18px', margin: '0 0 2px' }}>
+            {eligible ? '¡Certificado disponible!' : 'Certificado FGU — En progreso'}
+          </h2>
+          <p style={{ fontSize: '13px', opacity: 0.7, margin: 0 }}>
+            {eligible
+              ? 'Cumpliste todas las condiciones. ¡Descargá tu certificado!'
+              : `Promedio de competencias: ${eligibility?.averageScore.toFixed(2) ?? '—'} / 4.0`}
           </p>
+        </div>
+      </div>
+
+      {/* Competency scores grid */}
+      {scores && (
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: '10px', marginBottom: '20px',
+        }}>
+          {(Object.keys(scores) as (keyof CompetencyScores)[]).map(key => {
+            const score = scores[key]
+            const barColor =
+              score >= 3.5 ? 'var(--green)' :
+              score >= 3.0 ? 'var(--teal)'  :
+              score >= 2.0 ? 'var(--gold)'  : 'var(--coral)'
+
+            return (
+              <div key={key} style={{
+                background: eligible ? 'rgba(255,255,255,0.08)' : 'var(--bg)',
+                borderRadius: '10px', padding: '12px',
+              }}>
+                <div style={{
+                  fontWeight: 800, fontSize: '20px',
+                  color: eligible ? 'white' : barColor,
+                  marginBottom: '4px',
+                }}>
+                  {score.toFixed(1)}
+                  <span style={{ fontSize: '11px', fontWeight: 500, opacity: 0.6 }}> /4</span>
+                </div>
+                {/* Bar */}
+                <div style={{
+                  height: '4px', borderRadius: '99px',
+                  background: eligible ? 'rgba(255,255,255,0.15)' : 'var(--border)',
+                  marginBottom: '6px', overflow: 'hidden',
+                }}>
+                  <div style={{
+                    height: '100%', borderRadius: '99px',
+                    background: eligible ? 'var(--green)' : barColor,
+                    width: `${(score / 4) * 100}%`,
+                  }} />
+                </div>
+                <div style={{ fontSize: '10px', fontWeight: 700, opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {COMP_LABELS[key]}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
+      {/* Eligible → download button */}
+      {eligible ? (
+        <button
+          onClick={onDownload}
+          disabled={generating}
+          style={{
+            width: '100%', padding: '14px',
+            background: generating ? 'rgba(255,255,255,0.2)' : 'var(--green)',
+            color: generating ? 'rgba(255,255,255,0.5)' : 'var(--navy)',
+            border: 'none', borderRadius: '10px',
+            fontWeight: 800, fontSize: '15px',
+            cursor: generating ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit', letterSpacing: '-0.01em',
+            transition: 'background 0.15s',
+          }}
+        >
+          {generating ? 'Generando PDF…' : '⬇ Descargar certificado FGU'}
+        </button>
+      ) : (
+        // Not eligible yet — show which conditions are missing
+        eligibility?.failedConditions.length ? (
+          <div>
+            <p style={{ fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Condiciones pendientes
+            </p>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {eligibility.failedConditions.map(cond => (
+                <li key={cond} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '8px',
+                  background: 'var(--coral-l)', borderRadius: '8px',
+                  padding: '8px 12px', fontSize: '13px', color: 'var(--coral)',
+                  fontWeight: 600,
+                }}>
+                  <span>✗</span>
+                  <span>{cond}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null
+      )}
     </div>
   )
 }

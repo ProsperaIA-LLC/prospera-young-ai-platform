@@ -1,179 +1,288 @@
-// GET /api/mentor/dashboard — Mentor cohort overview
+// GET /api/mentor/dashboard
+// Returns full cohort dashboard for authenticated mentors.
+// Uses cohort_overview and student_progress views; requires role === 'mentor' | 'admin'.
+
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import type {
+  MentorDashboardData,
+  MentorAlertWithStudent,
+  PodSummaryWithPod,
+  DeliverableWithStudent,
+  StudentProgress,
+  CohortOverview,
+} from '@/types'
 
 export async function GET() {
   const supabase = await createClient()
 
-  // 1. Auth + role check
-  const { data: { user: authUser } } = await supabase.auth.getUser()
-  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // ── 1. Auth ──────────────────────────────────────────────────────────────────
+  const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+  if (authError || !authUser) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  }
 
+  // ── 2. Role check ────────────────────────────────────────────────────────────
+  // Fetch the user's own row (RLS: auth.uid() = id is always allowed)
   const { data: profile } = await supabase
     .from('users')
     .select('role, full_name, nickname, avatar_url')
     .eq('id', authUser.id)
     .single()
 
-  if (profile?.role !== 'mentor') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!profile || (profile.role !== 'mentor' && profile.role !== 'admin')) {
+    return NextResponse.json({ error: 'Acceso restringido a mentores' }, { status: 403 })
   }
 
-  // 2. Active cohorts (mentors oversee all active cohorts for now)
-  const { data: cohorts } = await supabase
+  // ── 3. Active cohort ─────────────────────────────────────────────────────────
+  // For now we surface the most-recently-started active cohort.
+  // If you need multi-cohort support, accept ?cohortId= as a query param.
+  const { data: cohort, error: cohortError } = await supabase
     .from('cohorts')
     .select('*')
     .eq('status', 'active')
     .order('start_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  if (!cohorts || cohorts.length === 0) {
+  if (cohortError) {
+    return NextResponse.json({ error: 'Error obteniendo cohorte activa' }, { status: 500 })
+  }
+
+  if (!cohort) {
+    // No active cohort — return empty shell so the UI can handle it gracefully
     return NextResponse.json({
       mentor: profile,
-      cohorts: [],
+      cohort: null,
+      overview: null,
       students: [],
-      alerts: [],
-      podSummary: [],
+      redAlerts: [],
+      yellowAlerts: [],
+      podSummaries: [],
+      recentDeliverables: [],
     })
   }
 
-  const cohortIds = cohorts.map((c: { id: string }) => c.id)
+  const cohortId = cohort.id
+  const currentWeek = cohort.current_week
 
-  // 3. All students in active cohorts
-  const { data: enrollments } = await supabase
-    .from('enrollments')
-    .select('*, users(id, full_name, nickname, avatar_url, country, age)')
-    .in('cohort_id', cohortIds)
-    .eq('status', 'active')
+  // ── 4. Parallel: views + alerts + pod summaries + deliverables ───────────────
+  const [
+    overviewRes,
+    studentsRes,
+    alertsRes,
+    podSummariesRes,
+    deliverablesRes,
+  ] = await Promise.all([
+    // a. cohort_overview view — aggregates per cohort
+    supabase
+      .from('cohort_overview')
+      .select('*')
+      .eq('cohort_id', cohortId)
+      .maybeSingle(),
 
-  // 4. Open alerts (unresolved)
-  const { data: alerts } = await supabase
-    .from('mentor_alerts')
-    .select('*, users!mentor_alerts_student_id_fkey(id, full_name, nickname)')
-    .in('cohort_id', cohortIds)
-    .is('resolved_at', null)
-    .order('created_at', { ascending: false })
+    // b. student_progress view — one row per student in the cohort
+    supabase
+      .from('student_progress')
+      .select('*')
+      .eq('cohort_id', cohortId)
+      .order('hours_since_activity', { ascending: false, nullsFirst: true }),
 
-  // 5. Current week per cohort
-  const weeksByCohotId: Record<string, any> = {}
-  await Promise.all(
-    cohorts.map(async (cohort: any) => {
-      const { data: week } = await supabase
-        .from('weeks')
-        .select('id, week_number, title, phase, due_date')
-        .eq('cohort_id', cohort.id)
-        .eq('week_number', cohort.current_week)
-        .single()
-      if (week) weeksByCohotId[cohort.id] = week
-    })
-  )
+    // c. Unresolved alerts + student info joined via FK alias
+    supabase
+      .from('mentor_alerts')
+      .select(`
+        id, student_id, cohort_id, alert_type, severity,
+        message, is_resolved, resolved_by, resolved_at, created_at,
+        users!mentor_alerts_student_id_fkey (
+          id, full_name, nickname, avatar_url, country
+        )
+      `)
+      .eq('cohort_id', cohortId)
+      .eq('is_resolved', false)
+      .order('created_at', { ascending: false }),
 
-  // 6. Deliverable submission counts for current week per cohort
-  const submissionsByCohort: Record<string, number> = {}
-  await Promise.all(
-    cohorts.map(async (cohort: any) => {
-      const week = weeksByCohotId[cohort.id]
-      if (!week) return
-      const { count } = await supabase
-        .from('deliverables')
-        .select('*', { count: 'exact', head: true })
-        .eq('week_id', week.id)
-        .in('status', ['submitted', 'reviewed'])
-      submissionsByCohort[cohort.id] = count ?? 0
-    })
-  )
+    // d. Pod summaries for current week + pod + pod leader
+    supabase
+      .from('pod_summaries')
+      .select(`
+        id, pod_id, cohort_id, week_number, pod_leader_id, summary_text, submitted_at,
+        pods ( id, name, cohort_id, timezone_region, discord_channel_url, created_at ),
+        users!pod_summaries_pod_leader_id_fkey ( id, full_name, nickname )
+      `)
+      .eq('cohort_id', cohortId)
+      .eq('week_number', currentWeek)
+      .order('submitted_at', { ascending: false }),
 
-  // 7. Pods for active cohorts
-  const { data: pods } = await supabase
-    .from('pods')
-    .select('*, pod_members(user_id, is_pod_leader_this_week)')
-    .in('cohort_id', cohortIds)
-
-  // 8. Enrich student data with alert status and deliverable
-  const studentIds = (enrollments || []).map((e: any) => e.user_id)
-
-  // Get last activity for all students
-  const activityMap: Record<string, string | null> = {}
-  if (studentIds.length > 0) {
-    const { data: activities } = await supabase
-      .from('activity_log')
-      .select('user_id, created_at')
-      .in('user_id', studentIds)
-      .in('cohort_id', cohortIds)
-      .order('created_at', { ascending: false })
-
-    // Keep only most recent per user
-    ;(activities || []).forEach((a: { user_id: string; created_at: string }) => {
-      if (!activityMap[a.user_id]) activityMap[a.user_id] = a.created_at
-    })
-  }
-
-  // Get current week deliverables for all students
-  const deliverableMap: Record<string, string> = {}
-  const allWeekIds = Object.values(weeksByCohotId).map((w: any) => w.id)
-  if (allWeekIds.length > 0 && studentIds.length > 0) {
-    const { data: deliverables } = await supabase
+    // e. 5 most recent deliverables pending mentor review, with student + week info
+    supabase
       .from('deliverables')
-      .select('user_id, week_id, status')
-      .in('user_id', studentIds)
-      .in('week_id', allWeekIds)
+      .select(`
+        id, user_id, week_id, cohort_id, content, status,
+        mentor_feedback, buddy_feedback, submitted_at, reviewed_at, created_at, updated_at,
+        users!deliverables_user_id_fkey ( id, full_name, nickname, avatar_url, country ),
+        weeks!deliverables_week_id_fkey ( week_number, title )
+      `)
+      .eq('cohort_id', cohortId)
+      .eq('status', 'submitted')
+      .order('submitted_at', { ascending: false })
+      .limit(5),
+  ])
 
-    ;(deliverables || []).forEach((d: { user_id: string; week_id: string; status: string }) => {
-      deliverableMap[`${d.user_id}-${d.week_id}`] = d.status
-    })
+  // ── 5. Shape: overview ───────────────────────────────────────────────────────
+  const overview = (overviewRes.data ?? null) as CohortOverview | null
+
+  // ── 6. Shape: students ───────────────────────────────────────────────────────
+  const students = (studentsRes.data ?? []) as StudentProgress[]
+
+  // ── 7. Shape: alerts — split by severity, red first ──────────────────────────
+  // Build a pod lookup from student_progress (each student row has pod_id + pod_name)
+  const podByStudent = new Map<string, { id: string; name: string } | null>()
+  for (const s of students) {
+    podByStudent.set(
+      s.user_id,
+      s.pod_id && s.pod_name ? { id: s.pod_id, name: s.pod_name } : null,
+    )
   }
 
-  // Build enriched student list
-  const students = (enrollments || []).map((e: any) => {
-    const cohort = cohorts.find((c: any) => c.id === e.cohort_id)
-    const currentWeek = cohort ? weeksByCohotId[cohort.id] : null
-    const lastActivityAt = activityMap[e.user_id] ?? null
-    const hoursInactive = lastActivityAt
-      ? (Date.now() - new Date(lastActivityAt).getTime()) / (1000 * 60 * 60)
-      : 999
+  const rawAlerts = alertsRes.data ?? []
 
-    const deliverableKey = currentWeek ? `${e.user_id}-${currentWeek.id}` : null
-    const deliverableStatus = deliverableKey ? deliverableMap[deliverableKey] ?? 'not_started' : 'not_started'
-    const hasSubmitted = ['submitted', 'reviewed'].includes(deliverableStatus)
-
-    // Determine alert level
-    let alertLevel: 'none' | 'yellow' | 'red' = 'none'
-    const existingAlert = (alerts || []).find((a: any) => a.student_id === e.user_id)
-    if (existingAlert?.severity === 'red') alertLevel = 'red'
-    else if (existingAlert?.severity === 'yellow') alertLevel = 'yellow'
-    else if (hoursInactive >= 48) alertLevel = 'yellow'
+  function shapeAlert(a: typeof rawAlerts[number]): MentorAlertWithStudent {
+    const studentRow = (a as any).users as {
+      id: string; full_name: string; nickname: string | null
+      avatar_url: string | null; country: string | null
+    } | null
 
     return {
-      enrollment: { id: e.id, cohort_id: e.cohort_id, user_id: e.user_id },
-      user: e.users,
-      cohortName: cohort?.name ?? '',
-      lastActivityAt,
-      hoursInactive: Math.round(hoursInactive),
-      deliverableStatus,
-      hasSubmitted,
-      alertLevel,
-      currentWeekNumber: currentWeek?.week_number ?? null,
+      alert: {
+        id: a.id,
+        student_id: a.student_id,
+        cohort_id: a.cohort_id,
+        alert_type: a.alert_type as any,
+        severity: a.severity as any,
+        message: a.message ?? null,
+        is_resolved: a.is_resolved,
+        resolved_by: a.resolved_by ?? null,
+        resolved_at: a.resolved_at ?? null,
+        created_at: a.created_at,
+      },
+      student: {
+        id: studentRow?.id ?? a.student_id,
+        full_name: studentRow?.full_name ?? 'Estudiante',
+        nickname: studentRow?.nickname ?? null,
+        avatar_url: studentRow?.avatar_url ?? null,
+        country: studentRow?.country ?? null,
+      },
+      pod: podByStudent.get(a.student_id) ?? null,
+    }
+  }
+
+  // Sort: red before yellow, then by created_at desc within each group
+  const redAlerts: MentorAlertWithStudent[] = rawAlerts
+    .filter(a => a.severity === 'red')
+    .map(shapeAlert)
+
+  const yellowAlerts: MentorAlertWithStudent[] = rawAlerts
+    .filter(a => a.severity === 'yellow')
+    .map(shapeAlert)
+
+  // ── 8. Shape: pod summaries ───────────────────────────────────────────────────
+  const podSummaries: PodSummaryWithPod[] = (podSummariesRes.data ?? []).map(row => {
+    const pod = (row as any).pods as {
+      id: string; name: string; cohort_id: string
+      timezone_region: string | null; discord_channel_url: string | null; created_at: string
+    } | null
+    const leader = (row as any).users as {
+      id: string; full_name: string; nickname: string | null
+    } | null
+
+    return {
+      summary: {
+        id: row.id,
+        pod_id: row.pod_id,
+        cohort_id: row.cohort_id,
+        week_number: row.week_number,
+        pod_leader_id: row.pod_leader_id,
+        summary_text: row.summary_text,
+        submitted_at: row.submitted_at,
+      },
+      pod: pod ?? {
+        id: row.pod_id,
+        name: 'Pod',
+        cohort_id: row.cohort_id,
+        timezone_region: null,
+        discord_channel_url: null,
+        created_at: row.submitted_at,
+      },
+      podLeader: {
+        id: leader?.id ?? row.pod_leader_id,
+        full_name: leader?.full_name ?? 'Pod Leader',
+        nickname: leader?.nickname ?? null,
+      },
     }
   })
 
-  return NextResponse.json({
-    mentor: profile,
-    cohorts: cohorts.map((c: any) => ({
-      ...c,
-      currentWeekData: weeksByCohotId[c.id] ?? null,
-      submissionsThisWeek: submissionsByCohort[c.id] ?? 0,
-      totalStudents: students.filter((s: any) => s.enrollment.cohort_id === c.id).length,
-    })),
-    students,
-    alerts: (alerts || []).map((a: any) => ({
-      id: a.id,
-      studentId: a.student_id,
-      studentName: a.users?.nickname || a.users?.full_name?.split(' ')[0] || 'Estudiante',
-      cohortId: a.cohort_id,
-      alertType: a.alert_type,
-      severity: a.severity,
-      message: a.message,
-      createdAt: a.created_at,
-    })),
-    pods: pods || [],
+  // ── 9. Shape: recent deliverables ─────────────────────────────────────────────
+  const recentDeliverables: DeliverableWithStudent[] = (deliverablesRes.data ?? []).map(row => {
+    const student = (row as any).users as {
+      id: string; full_name: string; nickname: string | null
+      avatar_url: string | null; country: string | null
+    } | null
+    const week = (row as any).weeks as {
+      week_number: number; title: string
+    } | null
+
+    return {
+      deliverable: {
+        id: row.id,
+        user_id: row.user_id,
+        week_id: row.week_id,
+        cohort_id: row.cohort_id,
+        content: row.content ?? null,
+        status: row.status as any,
+        mentor_feedback: row.mentor_feedback ?? null,
+        buddy_feedback: row.buddy_feedback ?? null,
+        submitted_at: row.submitted_at ?? null,
+        reviewed_at: row.reviewed_at ?? null,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      },
+      student: {
+        id: student?.id ?? row.user_id,
+        full_name: student?.full_name ?? 'Estudiante',
+        nickname: student?.nickname ?? null,
+        avatar_url: student?.avatar_url ?? null,
+        country: student?.country ?? null,
+      },
+      week: {
+        week_number: week?.week_number ?? currentWeek,
+        title: week?.title ?? '',
+      },
+    }
   })
+
+  // ── 10. Final response ────────────────────────────────────────────────────────
+  const payload: MentorDashboardData & { mentor: typeof profile } = {
+    mentor: profile,
+    cohort,
+    overview: overview ?? {
+      cohort_id: cohortId,
+      cohort_name: cohort.name,
+      market: cohort.market,
+      status: cohort.status,
+      current_week: currentWeek,
+      total_students: 0,
+      active_students: 0,
+      dropped_students: 0,
+      red_alerts: 0,
+      yellow_alerts: 0,
+    },
+    students,
+    redAlerts,
+    yellowAlerts,
+    podSummaries,
+    recentDeliverables,
+  }
+
+  return NextResponse.json(payload)
 }

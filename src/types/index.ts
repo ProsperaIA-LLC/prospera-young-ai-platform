@@ -509,6 +509,12 @@ export type Database = {
         Update: { id?: string; cohort_id?: string | null; applicant_name?: string; applicant_email?: string; applicant_age?: number; applicant_country?: string; motivation_letter?: string; video_url?: string | null; reference_name?: string | null; reference_contact?: string | null; status?: ScholarshipStatus; reviewed_by?: string | null; reviewed_at?: string | null; notes?: string | null; created_at?: string }
         Relationships: []
       }
+      competency_scores: {
+        Row: { id: string; student_id: string; cohort_id: string; validation_score: number; creation_score: number; communication_score: number; growth_score: number; attendance_percent: number; presented_at_demo_day: boolean; scored_by: string | null; scored_at: string | null; notes: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; student_id: string; cohort_id: string; validation_score?: number; creation_score?: number; communication_score?: number; growth_score?: number; attendance_percent?: number; presented_at_demo_day?: boolean; scored_by?: string | null; scored_at?: string | null; notes?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; student_id?: string; cohort_id?: string; validation_score?: number; creation_score?: number; communication_score?: number; growth_score?: number; attendance_percent?: number; presented_at_demo_day?: boolean; scored_by?: string | null; scored_at?: string | null; notes?: string | null; created_at?: string; updated_at?: string }
+        Relationships: []
+      }
     }
     Views: {
       cohort_overview: { Row: { cohort_id: string; cohort_name: string; market: Market; status: CohortStatus; current_week: number; total_students: number; active_students: number; dropped_students: number; red_alerts: number; yellow_alerts: number }; Relationships: [] }
