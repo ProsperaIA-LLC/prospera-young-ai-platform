@@ -186,7 +186,10 @@ export default function LoginPage() {
                   </div>
                   <div style={{ marginBottom: '12px' }}>
                     <input
+                      id="login-email"
+                      name="email"
                       type="email"
+                      autoComplete="email"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && sendMagicLink()}
@@ -260,7 +263,7 @@ export default function LoginPage() {
 
               <div style={{ marginBottom: '16px' }}>
                 <label style={labelStyle}>Nombre completo</label>
-                <input type="text" value={regForm.fullName}
+                <input id="reg-name" name="fullName" type="text" autoComplete="name" value={regForm.fullName}
                   onChange={e => setRegForm(p => ({ ...p, fullName: e.target.value }))}
                   placeholder="Valentina García"
                   style={inputStyle}
@@ -269,7 +272,7 @@ export default function LoginPage() {
 
               <div style={{ marginBottom: '16px' }}>
                 <label style={labelStyle}>Email</label>
-                <input type="email" value={regForm.email}
+                <input id="reg-email" name="email" type="email" autoComplete="email" value={regForm.email}
                   onChange={e => setRegForm(p => ({ ...p, email: e.target.value }))}
                   placeholder="tu@email.com"
                   style={inputStyle}
@@ -279,7 +282,7 @@ export default function LoginPage() {
               <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>País</label>
-                  <input type="text" value={regForm.country}
+                  <input id="reg-country" name="country" type="text" autoComplete="country-name" value={regForm.country}
                     onChange={e => setRegForm(p => ({ ...p, country: e.target.value }))}
                     placeholder="México"
                     style={inputStyle}
@@ -287,7 +290,7 @@ export default function LoginPage() {
                 </div>
                 <div style={{ width: '90px', flexShrink: 0 }}>
                   <label style={labelStyle}>Edad</label>
-                  <input type="number" value={regForm.age} min={14} max={18}
+                  <input id="reg-age" name="age" type="number" value={regForm.age} min={14} max={18}
                     onChange={e => setRegForm(p => ({ ...p, age: e.target.value }))}
                     placeholder="16"
                     style={inputStyle}
