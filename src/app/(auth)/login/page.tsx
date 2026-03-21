@@ -1,19 +1,26 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 type Tab = 'login' | 'register'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState<Tab>('login')
 
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (searchParams.get('error') === 'auth') {
+      setError('El link expiró o ya fue usado. Pedí uno nuevo.')
+    }
+  }, [searchParams])
 
   const [regForm, setRegForm] = useState({ fullName: '', email: '', country: '', age: '' })
 
